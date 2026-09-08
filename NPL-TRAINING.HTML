@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NPL Dynamic Training Dashboard</title>
+  <!-- PapaParse for CSV Stream Parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+  <!-- Chart.js for Interactive Data Visualization -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* Samsung Sharp Sans Font Declarations */
+    @font-face {
+      font-family: 'Samsung Sharp Sans';
+      src: url('https://cdn.jsdelivr.net/gh/samsung/samsung-fonts/SamsungSharpSans-Medium.woff2') format('woff2'),
+           url('https://cdn.jsdelivr.net/gh/samsung/samsung-fonts/SamsungSharpSans-Medium.woff') format('woff');
+      font-weight: normal;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Samsung Sharp Sans';
+      src: url('https://cdn.jsdelivr.net/gh/samsung/samsung-fonts/SamsungSharpSans-Bold.woff2') format('woff2'),
+           url('https://cdn.jsdelivr.net/gh/samsung/samsung-fonts/SamsungSharpSans-Bold.woff') format('woff');
+      font-weight: bold;
+      font-style: normal;
+      font-display: swap;
+    }
+
+    :root {
+      --bg-dashboard: #f4f7fe;
+      --card-bg: #ffffff;
+      --primary-blue: #2563eb;
+      --secondary-cyan: #06b6d4;
+      --text-main: #1e293b;
+      --text-muted: #8e9babb8;
+      --border-color: #f1f5f9;
+      --card-shadow: 0 10px 30px rgba(112, 144, 176, 0.07);
+      --font-family: 'Samsung Sharp Sans', 'Segoe UI', Arial, sans-serif;
+    }
+
+    /* PIGILAN ANG TEXT SELECTION */
+    body {
+      font-family: var(--font-family);
+      font-weight: normal;
+      margin: 0;
+      padding: 24px;
+      background-color: var(--bg-dashboard);
+      color: var(--text-main);
+      -webkit-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+
+    /* TAGO PAG TENTATIVE NA I-PRINT OR SAVE AS PDF */
+    @media print {
+      body {
+        display: none !important;
+      }
+    }
+
+    b, strong, h1, h2, h3, h4, th, .tab-btn, .value, .bold {
+      font-family: var(--font-family) !important;
+      font-weight: bold !important;
+    }
+
+    /* STICKY TOP CONTAINER */
+    .sticky-top-wrapper {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background-color: var(--bg-dashboard);
+      padding-top: 4px;
+      padding-bottom: 12px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card-bg);
+      padding: 18px 28px;
+      border-radius: 20px;
+      box-shadow: var(--card-shadow);
+      margin-bottom: 16px;
+    }
+    .header h1 {
+      margin: 0 0 4px 0;
+      font-size: 1.5em;
+      color: var(--text-main);
+      letter-spacing: -0.4px;
+    }
+    .header p {
+      margin: 0;
+      color: #94a3b8;
+      font-size: 0.85em;
+    }
+    .live-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8em;
+      color: #059669;
+      background: #ecfdf5;
+      padding: 6px 16px;
+      border-radius: 30px;
+      font-family: var(--font-family) !important;
+      font-weight: bold !important;
+    }
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      background-color: #10b981;
+      border-radius: 50%;
+      display: inline-block;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 16px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .tab-btn {
+      padding: 10px 22px;
+      border: none;
+      background: #ffffff;
+      color: #64748b;
+      cursor: pointer;
+      border-radius: 14px;
+      font-size: 0.88em;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+      transition: all 0.2s ease;
+    }
+    .tab-btn.active {
+      background: var(--primary-blue);
+      color: #ffffff;
+      box-shadow: 0 8px 16px rgba(37, 99, 235, 0.25);
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* MODERN STAT CARDS */
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+    }
+    .card {
+      background: var(--card-bg);
+      padding: 20px;
+      border-radius: 18px;
+      box-shadow: var(--card-shadow);
+      border: 1px solid #f8fafc;
+    }
+    .card h4 { margin: 0 0 8px 0; color: #94a3b8; font-size: 0.75em; text-transform: uppercase; letter-spacing: 0.6px; }
+    .card .value { font-size: 1.35em; color: var(--text-main); word-break: break-word; }
+    .card .sub-value { font-size: 0.8em; color: #64748b; margin-top: 4px; }
+
+    /* CHARTS CONTAINER */
+    .charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+      margin-bottom: 24px;
+    }
+    .chart-card {
+      background: var(--card-bg);
+      padding: 22px;
+      border-radius: 20px;
+      box-shadow: var(--card-shadow);
+      border: 1px solid #f8fafc;
+      position: relative;
+    }
+    .chart-card h4 {
+      margin: 0 0 16px 0;
+      font-size: 0.95em;
+      color: var(--text-main);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .chart-container {
+      position: relative;
+      height: 250px;
+      width: 100%;
+    }
+
+    /* TABLES LAYOUT */
+    .tables-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .table-container {
+      background: var(--card-bg);
+      padding: 24px;
+      border-radius: 20px;
+      box-shadow: var(--card-shadow);
+      border: 1px solid #f8fafc;
+      overflow-x: auto;
+    }
+    .table-container h3 {
+      margin-top: 0;
+      margin-bottom: 18px;
+      font-size: 1.05em;
+      color: var(--text-main);
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
+    th, td { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; text-align: left; }
+    th { background: #f8fafc; color: #475569; font-weight: bold; border-radius: 8px; }
+
+    .badge {
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 0.72em;
+      color: white;
+      display: inline-block;
+      font-family: var(--font-family) !important;
+      font-weight: bold !important;
+    }
+    .bg-done { background: #10b981; }
+    .bg-progress { background: #f59e0b; color: #fff; }
+    .bg-pending { background: #ef4444; }
+    #loader { font-size: 1.05em; color: var(--primary-blue); margin-bottom: 15px; }
+  </style>
+</head>
+<body>
+
+  <!-- STICKY TOP CONTAINER (HEADER, TABS & SUMMARY CARDS) -->
+  <div class="sticky-top-wrapper">
+    <div class="header">
+      <div>
+        <h1>NPL Dynamic Training Dashboard</h1>
+        <p>Visual Analytics & Interactive Performance Metrics</p>
+      </div>
+      <div class="live-status">
+        <span class="pulse-dot"></span>
+        <span id="syncText">CONNECTING...</span>
+      </div>
+    </div>
+
+    <div id="loader" class="bold">Fetching data directly from Google Sheets...</div>
+    <div class="tabs" id="tabsContainer"></div>
+    <div id="summaryCardsContainer" class="cards-grid"></div>
+  </div>
+
+  <!-- SCROLLABLE BODY CONTENT (CHARTS & TABLES) -->
+  <div id="contentsContainer"></div>
+
+  <script>
+    // --- SECURITY & PROTECTION SCRIPT ---
+    document.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        alert('Saving is disabled on this dashboard.');
+        return false;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 'P')) {
+        e.preventDefault();
+        alert('Printing is disabled on this dashboard.');
+        return false;
+      }
+      if (e.key === 'PrintScreen' || e.keyCode === 44) {
+        e.preventDefault();
+        navigator.clipboard.writeText('');
+        alert('Screenshots via PrintScreen are disabled.');
+        return false;
+      }
+    });
+
+    document.addEventListener('contextmenu', function (e) {
+      e.preventDefault();
+    });
+
+    window.addEventListener('keyup', function (e) {
+      if (e.key === 'PrintScreen' || e.keyCode === 44) {
+        navigator.clipboard.writeText('');
+      }
+    });
+
+    // --- DASHBOARD DATA ENGINE ---
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS0h-UPJQmlKl3Q1VWFklTWgPhNClo-2XcI7trEztjG_kQoTGFJnqE4RfY7POQKkrLPQArwtJUXY0aP/pub?output=csv";
+
+    let activeModelTab = null;
+    const chartInstances = {};
+
+    Chart.defaults.font.family = "'Samsung Sharp Sans', 'Segoe UI', Arial, sans-serif";
+
+    function fetchCSVData() {
+      Papa.parse(CSV_URL, {
+        download: true,
+        skipEmptyLines: false,
+        complete: function(results) {
+          const loader = document.getElementById('loader');
+          if (loader) loader.style.display = 'none';
+
+          if (results.data && results.data.length > 3) {
+            processCSVRows(results.data);
+            document.getElementById('syncText').innerText = `LIVE UPDATED (${new Date().toLocaleTimeString()})`;
+          }
+        },
+        error: function(err) {
+          console.error("Auto-sync error:", err);
+          document.getElementById('syncText').innerText = "RETRYING CONNECTION...";
+        }
+      });
+    }
+
+    function processCSVRows(rows) {
+      let headerRowIdx = -1;
+      for (let i = 0; i < Math.min(rows.length, 20); i++) {
+        if (rows[i] && rows[i].some(cell => cell && cell.toString().trim().toUpperCase() === 'MCS CODE')) {
+          headerRowIdx = i;
+          break;
+        }
+      }
+
+      if (headerRowIdx === -1) {
+        document.getElementById('loader').innerText = "Could not locate 'MCS CODE' header row in CSV.";
+        document.getElementById('loader').style.display = 'block';
+        return;
+      }
+
+      const subHeaderRow = rows[headerRowIdx] || [];
+      const modelRow = rows[headerRowIdx - 1] || [];
+
+      let ftColIdx = 6, dealerColIdx = 3, areaColIdx = 2;
+      subHeaderRow.forEach((val, idx) => {
+        const text = val ? val.toString().trim().toUpperCase() : '';
+        if (text === 'FT NAME') ftColIdx = idx;
+        if (text === 'DEALER') dealerColIdx = idx;
+        if (text === 'AREA') areaColIdx = idx;
+      });
+
+      const modelsMap = {};
+      let currentModel = '';
+
+      for (let col = ftColIdx + 1; col < subHeaderRow.length; col++) {
+        const rawModel = modelRow[col] ? modelRow[col].toString().trim() : '';
+        const metricName = subHeaderRow[col] ? subHeaderRow[col].toString().trim() : '';
+
+        if (rawModel && !['SUBTOTAL', 'TOTAL', 'X', 'x', 'MCS CODE', 'STORE NAME', 'AREA', 'DEALER', 'CHANNEL TYPE', 'AP1', 'FT NAME'].includes(rawModel.toUpperCase())) {
+          currentModel = rawModel;
+        }
+
+        if (currentModel && metricName) {
+          if (!modelsMap[currentModel]) {
+            modelsMap[currentModel] = [];
+          }
+          modelsMap[currentModel].push({ index: col, metric: metricName });
+        }
+      }
+
+      const validModels = Object.keys(modelsMap).filter(m => modelsMap[m] && modelsMap[m].length > 0);
+      const dataRows = rows.slice(headerRowIdx + 1);
+
+      if (!activeModelTab || !validModels.includes(activeModelTab)) {
+        activeModelTab = validModels[0] || null;
+      }
+
+      buildDashboard(validModels, modelsMap, dataRows, ftColIdx, dealerColIdx, areaColIdx);
+    }
+
+    function buildDashboard(models, modelsMap, dataRows, ftColIdx, dealerColIdx, areaColIdx) {
+      const tabsContainer = document.getElementById('tabsContainer');
+      const summaryCardsContainer = document.getElementById('summaryCardsContainer');
+      const contentsContainer = document.getElementById('contentsContainer');
+
+      tabsContainer.innerHTML = '';
+      summaryCardsContainer.innerHTML = '';
+      contentsContainer.innerHTML = '';
+
+      if (!models || models.length === 0) {
+        contentsContainer.innerHTML = `<div style="text-align:center; padding:40px; color:#666;">No Active Models Found.</div>`;
+        return;
+      }
+
+      models.forEach((model) => {
+        const isActive = (model === activeModelTab);
+        const safeModelId = model.replace(/[^a-zA-Z0-9]/g, '-');
+
+        const btn = document.createElement('button');
+        btn.className = `tab-btn ${isActive ? 'active' : ''}`;
+        btn.innerText = model;
+        btn.onclick = () => switchTab(model);
+        tabsContainer.appendChild(btn);
+
+        const cols = modelsMap[model] || [];
+
+        let maxFreqFF = 0;
+        let maxFreqFSM = 0;
+        let isFSMSection = false;
+
+        cols.forEach(c => {
+          const mName = c.metric.toUpperCase();
+          if (mName.includes('TARGET HC (FSM)')) isFSMSection = true;
+
+          const match = mName.match(/FREQ\s*(\d+)/);
+          if (match) {
+            const freqNum = parseInt(match[1]);
+            if (isFSMSection) {
+              if (freqNum > maxFreqFSM) maxFreqFSM = freqNum;
+            } else {
+              if (freqNum > maxFreqFF) maxFreqFF = freqNum;
+            }
+          }
+        });
+
+        const ftAgg = {}, areaAgg = {}, dealerAgg = {};
+        let totalTargetOverall = 0, totalActualOverall = 0;
+
+        dataRows.forEach((row) => {
+          const mcs = row[0] ? row[0].toString().trim() : '';
+          const storeName = row[1] ? row[1].toString().trim() : '';
+          const area = row[areaColIdx] ? row[areaColIdx].toString().trim() : 'N/A';
+          const dealer = row[dealerColIdx] ? row[dealerColIdx].toString().trim() : 'N/A';
+          const ft = row[ftColIdx] ? row[ftColIdx].toString().trim() : 'NO FT TAGGING';
+
+          if (!mcs && !storeName) return;
+
+          let rsiVal = 0;
+          let targetFF = 0, targetFSM = 0;
+          const freqsFF = {};
+          const freqsFSM = {};
+          let curIsFSM = false;
+
+          cols.forEach(c => {
+            const rawVal = row[c.index] ? row[c.index].toString().replace('%', '').trim() : '0';
+            const val = parseFloat(rawVal) || 0;
+            const mName = c.metric.toUpperCase();
+
+            if (mName.includes('RSI')) {
+              rsiVal = val;
+            } else if (mName.includes('TARGET HC (FSM)')) {
+              curIsFSM = true;
+              targetFSM = val;
+            } else if (mName.includes('TARGET HC (FF)')) {
+              targetFF = val;
+            } else {
+              const match = mName.match(/FREQ\s*(\d+)/);
+              if (match) {
+                const fNum = parseInt(match[1]);
+                if (curIsFSM) freqsFSM[fNum] = val;
+                else freqsFF[fNum] = val;
+              }
+            }
+          });
+
+          if (rsiVal !== 1) return;
+
+          let sumFreqFF = 0;
+          for (let f = 1; f <= maxFreqFF; f++) sumFreqFF += (freqsFF[f] || 0);
+          const storeActualFF = maxFreqFF > 0 ? (sumFreqFF / maxFreqFF) : 0;
+
+          let sumFreqFSM = 0;
+          for (let f = 1; f <= maxFreqFSM; f++) sumFreqFSM += (freqsFSM[f] || 0);
+          const storeActualFSM = maxFreqFSM > 0 ? (sumFreqFSM / maxFreqFSM) : 0;
+
+          totalTargetOverall += (targetFF + targetFSM);
+          totalActualOverall += (storeActualFF + storeActualFSM);
+
+          const initAggRow = () => {
+            const obj = { targetFF: 0, targetFSM: 0, freqsFF: {}, freqsFSM: {} };
+            for (let f = 1; f <= maxFreqFF; f++) obj.freqsFF[f] = 0;
+            for (let f = 1; f <= maxFreqFSM; f++) obj.freqsFSM[f] = 0;
+            return obj;
+          };
+
+          const addDataToAgg = (aggObj, key) => {
+            if (!aggObj[key]) aggObj[key] = initAggRow();
+            aggObj[key].targetFF += targetFF;
+            aggObj[key].targetFSM += targetFSM;
+            for (let f = 1; f <= maxFreqFF; f++) aggObj[key].freqsFF[f] += (freqsFF[f] || 0);
+            for (let f = 1; f <= maxFreqFSM; f++) aggObj[key].freqsFSM[f] += (freqsFSM[f] || 0);
+          };
+
+          addDataToAgg(ftAgg, ft);
+          addDataToAgg(areaAgg, area);
+          addDataToAgg(dealerAgg, dealer);
+        });
+
+        totalActualOverall = Math.round(totalActualOverall);
+
+        const areaLabels = Object.keys(areaAgg);
+        const areaAchData = [];
+        const areaTargetData = [];
+        const areaActualData = [];
+        let doneCount = 0, progressCount = 0, pendingCount = 0;
+
+        areaLabels.forEach(key => {
+          const r = areaAgg[key];
+          const totalTarget = r.targetFF + r.targetFSM;
+
+          let sumFF = 0;
+          for (let f = 1; f <= maxFreqFF; f++) sumFF += (r.freqsFF[f] || 0);
+          const actFF = maxFreqFF > 0 ? (sumFF / maxFreqFF) : 0;
+
+          let sumFSM = 0;
+          for (let f = 1; f <= maxFreqFSM; f++) sumFSM += (r.freqsFSM[f] || 0);
+          const actFSM = maxFreqFSM > 0 ? (sumFSM / maxFreqFSM) : 0;
+
+          const totalActual = Math.round(actFF + actFSM);
+          const ach = totalTarget > 0 ? parseFloat(((totalActual / totalTarget) * 100).toFixed(1)) : 0;
+
+          areaAchData.push(ach);
+          areaTargetData.push(totalTarget);
+          areaActualData.push(totalActual);
+
+          let isAllFreqComplete = true;
+          let hasAnyProgress = false;
+
+          if (r.targetFF > 0) {
+            for (let f = 1; f <= maxFreqFF; f++) {
+              if ((r.freqsFF[f] || 0) < r.targetFF) isAllFreqComplete = false;
+              if ((r.freqsFF[f] || 0) > 0) hasAnyProgress = true;
+            }
+          }
+          if (r.targetFSM > 0) {
+            for (let f = 1; f <= maxFreqFSM; f++) {
+              if ((r.freqsFSM[f] || 0) < r.targetFSM) isAllFreqComplete = false;
+              if ((r.freqsFSM[f] || 0) > 0) hasAnyProgress = true;
+            }
+          }
+
+          if (isAllFreqComplete && totalTarget > 0) doneCount++;
+          else if (hasAnyProgress || totalActual > 0) progressCount++;
+          else pendingCount++;
+        });
+
+        const buildDetailedSummaryRows = (aggObj) => {
+          const keys = Object.keys(aggObj);
+          const totalColsSpan = 1 + (maxFreqFF > 0 ? maxFreqFF + 1 : 0) + (maxFreqFSM > 0 ? maxFreqFSM + 1 : 0) + 4;
+
+          if (keys.length === 0) {
+            return `<tr><td colspan="${totalColsSpan}" style="text-align:center; color:#888;">No Target Stores (RSI = 1) Found</td></tr>`;
+          }
+
+          return keys.map(key => {
+            const r = aggObj[key];
+            const totalTarget = r.targetFF + r.targetFSM;
+
+            let sumFF = 0;
+            for (let f = 1; f <= maxFreqFF; f++) sumFF += (r.freqsFF[f] || 0);
+            const actFF = maxFreqFF > 0 ? (sumFF / maxFreqFF) : 0;
+
+            let sumFSM = 0;
+            for (let f = 1; f <= maxFreqFSM; f++) sumFSM += (r.freqsFSM[f] || 0);
+            const actFSM = maxFreqFSM > 0 ? (sumFSM / maxFreqFSM) : 0;
+
+            const totalActual = Math.round(actFF + actFSM);
+            const ach = totalTarget > 0 ? ((totalActual / totalTarget) * 100).toFixed(1) : 0;
+
+            let isAllFreqComplete = true;
+            let hasAnyProgress = false;
+
+            if (r.targetFF > 0) {
+              for (let f = 1; f <= maxFreqFF; f++) {
+                if ((r.freqsFF[f] || 0) < r.targetFF) isAllFreqComplete = false;
+                if ((r.freqsFF[f] || 0) > 0) hasAnyProgress = true;
+              }
+            }
+            if (r.targetFSM > 0) {
+              for (let f = 1; f <= maxFreqFSM; f++) {
+                if ((r.freqsFSM[f] || 0) < r.targetFSM) isAllFreqComplete = false;
+                if ((r.freqsFSM[f] || 0) > 0) hasAnyProgress = true;
+              }
+            }
+
+            let badge = 'bg-pending', status = 'NOT STARTED';
+            if (isAllFreqComplete && totalTarget > 0) {
+              badge = 'bg-done';
+              status = 'DONE';
+            } else if (hasAnyProgress || totalActual > 0) {
+              badge = 'bg-progress';
+              status = 'IN PROGRESS';
+            }
+
+            let ffFreqTds = '';
+            for (let f = 1; f <= maxFreqFF; f++) ffFreqTds += `<td>${r.freqsFF[f] || 0}</td>`;
+
+            let fsmFreqTds = '';
+            for (let f = 1; f <= maxFreqFSM; f++) fsmFreqTds += `<td>${r.freqsFSM[f] || 0}</td>`;
+
+            return `
+              <tr>
+                <td><b>${key}</b></td>
+                ${maxFreqFF > 0 ? `<td style="background:#f8fafc;">${r.targetFF}</td>${ffFreqTds}` : ''}
+                ${maxFreqFSM > 0 ? `<td style="background:#f8fafc;">${r.targetFSM}</td>${fsmFreqTds}` : ''}
+                <td><b>${totalTarget}</b></td>
+                <td><b>${totalActual}</b></td>
+                <td><b>${ach}%</b></td>
+                <td><span class="badge ${badge}">${status}</span></td>
+              </tr>
+            `;
+          }).join('');
+        };
+
+        const buildHeaderHTML = (groupTitle) => {
+          let ffHeaders = '';
+          for (let f = 1; f <= maxFreqFF; f++) ffHeaders += `<th>Freq ${f}</th>`;
+
+          let fsmHeaders = '';
+          for (let f = 1; f <= maxFreqFSM; f++) fsmHeaders += `<th>Freq ${f}</th>`;
+
+          return `
+            <thead>
+              <tr>
+                <th rowspan="2">${groupTitle}</th>
+                ${maxFreqFF > 0 ? `<th colspan="${maxFreqFF + 1}" style="text-align:center; background:#e0f2fe; color:#0369a1;">FIELD FORCE (FF)</th>` : ''}
+                ${maxFreqFSM > 0 ? `<th colspan="${maxFreqFSM + 1}" style="text-align:center; background:#ffedd5; color:#c2410c;">FSM</th>` : ''}
+                <th colspan="4" style="text-align:center; background:#dcfce7; color:#15803d;">TOTAL SUMMARY</th>
+              </tr>
+              <tr>
+                ${maxFreqFF > 0 ? `<th>Target</th>${ffHeaders}` : ''}
+                ${maxFreqFSM > 0 ? `<th>Target</th>${fsmHeaders}` : ''}
+                <th>Target HC</th><th>Actual HC</th><th>ACH %</th><th>Status</th>
+              </tr>
+            </thead>
+          `;
+        };
+
+        // --- DYNAMIC LEADING LOGIC ---
+        const getLeadingGroup = (aggObj) => {
+          const keys = Object.keys(aggObj);
+
+          if (keys.length === 0) {
+            return { name: 'NO DATA', sub: 'No records available' };
+          }
+
+          const hit100List = [];
+          const allList = [];
+
+          for (const key of keys) {
+            const r = aggObj[key];
+            const totalTarget = r.targetFF + r.targetFSM;
+
+            let sumFF = 0;
+            for (let f = 1; f <= maxFreqFF; f++) sumFF += (r.freqsFF[f] || 0);
+            const actFF = maxFreqFF > 0 ? (sumFF / maxFreqFF) : 0;
+
+            let sumFSM = 0;
+            for (let f = 1; f <= maxFreqFSM; f++) sumFSM += (r.freqsFSM[f] || 0);
+            const actFSM = maxFreqFSM > 0 ? (sumFSM / maxFreqFSM) : 0;
+
+            const totalActual = Math.round(actFF + actFSM);
+            const ach = totalTarget > 0 ? (totalActual / totalTarget) * 100 : 0;
+
+            const item = { key, totalActual, ach };
+            allList.push(item);
+
+            if (ach >= 100) {
+              hit100List.push(item);
+            }
+          }
+
+          if (hit100List.length > 0) {
+            hit100List.sort((a, b) => b.totalActual - a.totalActual || b.ach - a.ach);
+            const winner = hit100List[0];
+            return {
+              name: winner.key,
+              sub: `${winner.totalActual} HC (${winner.ach.toFixed(1)}% ACH - 100% Hit)`
+            };
+          }
+
+          allList.sort((a, b) => b.totalActual - a.totalActual || b.ach - a.ach);
+          const fallbackWinner = allList[0];
+
+          return {
+            name: fallbackWinner.key,
+            sub: `${fallbackWinner.totalActual} HC (${fallbackWinner.ach.toFixed(1)}% ACH - Highest HC)`
+          };
+        };
+
+        const leadingFT = getLeadingGroup(ftAgg);
+        const leadingDealer = getLeadingGroup(dealerAgg);
+        const leadingArea = getLeadingGroup(areaAgg);
+        const overallAch = totalTargetOverall > 0 ? ((totalActualOverall / totalTargetOverall) * 100).toFixed(1) : 0;
+
+        if (isActive) {
+          summaryCardsContainer.innerHTML = `
+            <div class="card">
+              <h4>Leading FT</h4>
+              <div class="value">${leadingFT.name}</div>
+              <div class="sub-value">${leadingFT.sub}</div>
+            </div>
+            <div class="card">
+              <h4>Leading Dealer</h4>
+              <div class="value">${leadingDealer.name}</div>
+              <div class="sub-value">${leadingDealer.sub}</div>
+            </div>
+            <div class="card">
+              <h4>Leading Area</h4>
+              <div class="value">${leadingArea.name}</div>
+              <div class="sub-value">${leadingArea.sub}</div>
+            </div>
+            <div class="card">
+              <h4>Model Overall ACH %</h4>
+              <div class="value">${overallAch}%</div>
+              <div class="sub-value">Total Target vs Actual</div>
+            </div>
+          `;
+        }
+
+        const contentDiv = document.createElement('div');
+        contentDiv.id = `tab-${safeModelId}`;
+        contentDiv.className = `tab-content ${isActive ? 'active' : ''}`;
+        contentDiv.dataset.leadingFt = leadingFT.name;
+        contentDiv.dataset.leadingFtSub = leadingFT.sub;
+        contentDiv.dataset.leadingDealer = leadingDealer.name;
+        contentDiv.dataset.leadingDealerSub = leadingDealer.sub;
+        contentDiv.dataset.leadingArea = leadingArea.name;
+        contentDiv.dataset.leadingAreaSub = leadingArea.sub;
+        contentDiv.dataset.overallAch = `${overallAch}%`;
+
+        contentDiv.innerHTML = `
+          <div class="charts-grid">
+            <div class="chart-card">
+              <h4>Area Status Overview</h4>
+              <div class="chart-container">
+                <canvas id="chart-status-${safeModelId}"></canvas>
+              </div>
+            </div>
+            <div class="chart-card">
+              <h4>ACH % per Area</h4>
+              <div class="chart-container">
+                <canvas id="chart-ach-${safeModelId}"></canvas>
+              </div>
+            </div>
+            <div class="chart-card">
+              <h4>Target vs Actual Headcount</h4>
+              <div class="chart-container">
+                <canvas id="chart-gap-${safeModelId}"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <div class="tables-layout">
+            <div class="table-container">
+              <h3>📍 Area Training Summary</h3>
+              <table>
+                ${buildHeaderHTML('Area')}
+                <tbody>${buildDetailedSummaryRows(areaAgg)}</tbody>
+              </table>
+            </div>
+
+            <div class="table-container">
+              <h3>👤 FT Name Training Summary</h3>
+              <table>
+                ${buildHeaderHTML('FT Name')}
+                <tbody>${buildDetailedSummaryRows(ftAgg)}</tbody>
+              </table>
+            </div>
+
+            <div class="table-container">
+              <h3>🏪 Dealer Training Summary</h3>
+              <table>
+                ${buildHeaderHTML('Dealer')}
+                <tbody>${buildDetailedSummaryRows(dealerAgg)}</tbody>
+              </table>
+            </div>
+          </div>
+        `;
+        contentsContainer.appendChild(contentDiv);
+
+        setTimeout(() => {
+          renderModelCharts(safeModelId, {
+            status: [doneCount, progressCount, pendingCount],
+            areas: areaLabels,
+            ach: areaAchData,
+            target: areaTargetData,
+            actual: areaActualData
+          });
+        }, 50);
+      });
+    }
+
+    // --- CHART GRAPHICS ENGINE (IMAGE SPECIFIC STYLE) ---
+    function renderModelCharts(safeModelId, data) {
+      ['status', 'ach', 'gap'].forEach(type => {
+        if (chartInstances[`${type}-${safeModelId}`]) {
+          chartInstances[`${type}-${safeModelId}`].destroy();
+        }
+      });
+
+      const commonGridStyle = {
+        color: 'rgba(226, 232, 240, 0.6)',
+        drawBorder: false
+      };
+
+      // 1. Semi-Doughnut Style (Status Overview)
+      const ctxStatus = document.getElementById(`chart-status-${safeModelId}`);
+      if (ctxStatus) {
+        chartInstances[`status-${safeModelId}`] = new Chart(ctxStatus, {
+          type: 'doughnut',
+          data: {
+            labels: ['DONE', 'IN PROGRESS', 'NOT STARTED'],
+            datasets: [{
+              data: data.status,
+              backgroundColor: ['#0284c7', '#38bdf8', '#cbd5e1'],
+              borderWidth: 0,
+              hoverOffset: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            rotation: -90,
+            circumference: 180,
+            cutout: '75%',
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: {
+                  boxWidth: 8,
+                  boxHeight: 8,
+                  usePointStyle: true,
+                  padding: 16,
+                  font: { size: 11, weight: '600' }
+                }
+              },
+              tooltip: {
+                padding: 10,
+                cornerRadius: 10
+              }
+            }
+          }
+        });
+      }
+
+      // 2. Modern Bar Chart (ACH % per Area)
+      const ctxAch = document.getElementById(`chart-ach-${safeModelId}`);
+      if (ctxAch) {
+        chartInstances[`ach-${safeModelId}`] = new Chart(ctxAch, {
+          type: 'bar',
+          data: {
+            labels: data.areas,
+            datasets: [{
+              label: 'ACH %',
+              data: data.ach,
+              backgroundColor: '#2563eb',
+              borderRadius: 8,
+              borderSkipped: false,
+              barThickness: 22
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                grid: { display: false },
+                ticks: { font: { size: 11 }, color: '#94a3b8' }
+              },
+              y: {
+                beginAtZero: true,
+                max: 100,
+                grid: commonGridStyle,
+                ticks: {
+                  font: { size: 11 },
+                  color: '#94a3b8',
+                  callback: (value) => value + '%'
+                }
+              }
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                padding: 10,
+                cornerRadius: 10,
+                callbacks: {
+                  label: (context) => ` ACH: ${context.parsed.y}%`
+                }
+              }
+            }
+          }
+        });
+      }
+
+      // 3. Multi-color Soft Bar Chart (Target vs Actual)
+      const ctxGap = document.getElementById(`chart-gap-${safeModelId}`);
+      if (ctxGap) {
+        chartInstances[`gap-${safeModelId}`] = new Chart(ctxGap, {
+          type: 'bar',
+          data: {
+            labels: data.areas,
+            datasets: [
+              {
+                label: 'Target HC',
+                data: data.target,
+                backgroundColor: '#e2e8f0',
+                borderRadius: 8,
+                borderSkipped: false,
+                barThickness: 14
+              },
+              {
+                label: 'Actual HC',
+                data: data.actual,
+                backgroundColor: '#06b6d4',
+                borderRadius: 8,
+                borderSkipped: false,
+                barThickness: 14
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                grid: { display: false },
+                ticks: { font: { size: 11 }, color: '#94a3b8' }
+              },
+              y: {
+                beginAtZero: true,
+                grid: commonGridStyle,
+                ticks: { font: { size: 11 }, color: '#94a3b8' }
+              }
+            },
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: {
+                  boxWidth: 8,
+                  boxHeight: 8,
+                  usePointStyle: true,
+                  padding: 14,
+                  font: { size: 11, weight: '600' }
+                }
+              },
+              tooltip: {
+                padding: 10,
+                cornerRadius: 10
+              }
+            }
+          }
+        });
+      }
+    }
+
+    function switchTab(modelName) {
+      activeModelTab = modelName;
+      const targetId = `tab-${modelName.replace(/[^a-zA-Z0-9]/g, '-')}`;
+
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.innerText === modelName));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === targetId));
+
+      const activeContent = document.getElementById(targetId);
+      if (activeContent) {
+        const summaryCardsContainer = document.getElementById('summaryCardsContainer');
+        summaryCardsContainer.innerHTML = `
+          <div class="card">
+            <h4>Leading FT</h4>
+            <div class="value">${activeContent.dataset.leadingFt || 'NO DATA'}</div>
+            <div class="sub-value">${activeContent.dataset.leadingFtSub || ''}</div>
+          </div>
+          <div class="card">
+            <h4>Leading Dealer</h4>
+            <div class="value">${activeContent.dataset.leadingDealer || 'NO DATA'}</div>
+            <div class="sub-value">${activeContent.dataset.leadingDealerSub || ''}</div>
+          </div>
+          <div class="card">
+            <h4>Leading Area</h4>
+            <div class="value">${activeContent.dataset.leadingArea || 'NO DATA'}</div>
+            <div class="sub-value">${activeContent.dataset.leadingAreaSub || ''}</div>
+          </div>
+          <div class="card">
+            <h4>Model Overall ACH %</h4>
+            <div class="value">${activeContent.dataset.overallAch || '0%'}</div>
+            <div class="sub-value">Total Target vs Actual</div>
+          </div>
+        `;
+      }
+    }
+
+    fetchCSVData();
+    setInterval(fetchCSVData, 10000);
+  </script>
+</body>
+</html>
