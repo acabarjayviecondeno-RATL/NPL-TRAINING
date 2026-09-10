@@ -36,23 +36,45 @@
       --secondary-cyan: #06b6d4;
       --text-main: #1e293b;
       --text-muted: #8e9babb8;
-      --border-color: #f1f5f9;
+      --border-color: #e2e8f0;
       --card-shadow: 0 10px 30px rgba(112, 144, 176, 0.07);
       --font-family: 'Samsung Sharp Sans', 'Segoe UI', Arial, sans-serif;
       --header-bg: #ffffff;
+
+      /* Table Section Colors Light Mode */
+      --th-ff-bg: #e0f2fe;
+      --th-ff-text: #0369a1;
+      --th-fsm-bg: #ffedd5;
+      --th-fsm-text: #c2410c;
+      --th-total-bg: #dcfce7;
+      --th-total-text: #15803d;
+      --td-ff-bg: #f0f9ff;
+      --td-fsm-bg: #fff7ed;
+      --td-models-bg: #f1f5f9;
     }
 
     /* NIGHT MODE CSS VARIABLES */
     body.dark-mode {
-      --bg-dashboard: #0f172a;
-      --card-bg: #1e293b;
+      --bg-dashboard: #0b0f19;
+      --card-bg: #151d2a;
       --primary-blue: #3b82f6;
       --secondary-cyan: #22d3ee;
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
-      --border-color: #334155;
-      --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-      --header-bg: #1e293b;
+      --border-color: #263346;
+      --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      --header-bg: #151d2a;
+
+      /* Table Section Colors Dark Mode */
+      --th-ff-bg: #1e3a8a;
+      --th-ff-text: #93c5fd;
+      --th-fsm-bg: #7c2d12;
+      --th-fsm-text: #fdba74;
+      --th-total-bg: #14532d;
+      --th-total-text: #86efac;
+      --td-ff-bg: #111e38;
+      --td-fsm-bg: #271a14;
+      --td-models-bg: #1e293b;
     }
 
     body {
@@ -79,7 +101,7 @@
       font-weight: bold !important;
     }
 
-    /* STICKY HEADER (DESKTOP DEFAULT) */
+    /* STICKY HEADER */
     .sticky-top-wrapper {
       position: sticky;
       top: 0;
@@ -89,7 +111,6 @@
       padding-bottom: 12px;
     }
 
-    /* REMOVE STICKY ON MOBILE / SMALL SCREENS */
     @media (max-width: 768px) {
       body {
         padding: 12px;
@@ -216,7 +237,7 @@
 
     .cards-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       gap: 16px;
     }
     .card {
@@ -309,19 +330,26 @@
     }
 
     table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
-    th, td { padding: 12px 14px; border-bottom: 1px solid var(--border-color); text-align: left; white-space: nowrap; }
+    th, td { padding: 12px 14px; border-bottom: 1px solid var(--border-color); text-align: left; white-space: nowrap; color: var(--text-main); }
     th { background: var(--border-color); color: var(--text-main); font-weight: bold; border-radius: 8px; }
 
-    /* TARGET COLOR-CODED BACKGROUNDS */
+    .th-ff { background-color: var(--th-ff-bg) !important; color: var(--th-ff-text) !important; }
+    .th-fsm { background-color: var(--th-fsm-bg) !important; color: var(--th-fsm-text) !important; }
+    .th-total { background-color: var(--th-total-bg) !important; color: var(--th-total-text) !important; }
+
+    .td-ff { background-color: var(--td-ff-bg) !important; }
+    .td-fsm { background-color: var(--td-fsm-bg) !important; }
+    .td-models { background-color: var(--td-models-bg) !important; color: var(--secondary-cyan) !important; }
+
     .bg-target-red { background-color: #fef2f2 !important; color: #991b1b !important; }
     .bg-target-orange { background-color: #fff7ed !important; color: #c2410c !important; }
     .bg-target-green { background-color: #f0fdf4 !important; color: #166534 !important; }
     .bg-target-blue { background-color: #eff6ff !important; color: #1e40af !important; }
 
-    body.dark-mode .bg-target-red { background-color: #7f1d1d !important; color: #fecaca !important; }
-    body.dark-mode .bg-target-orange { background-color: #7c2d12 !important; color: #ffedd5 !important; }
-    body.dark-mode .bg-target-green { background-color: #14532d !important; color: #bbf7d0 !important; }
-    body.dark-mode .bg-target-blue { background-color: #1e3a8a !important; color: #bfdbfe !important; }
+    body.dark-mode .bg-target-red { background-color: #451212 !important; color: #fca5a5 !important; }
+    body.dark-mode .bg-target-orange { background-color: #431407 !important; color: #fdba74 !important; }
+    body.dark-mode .bg-target-green { background-color: #052e16 !important; color: #86efac !important; }
+    body.dark-mode .bg-target-blue { background-color: #172554 !important; color: #93c5fd !important; }
 
     .badge {
       padding: 5px 12px;
@@ -332,9 +360,9 @@
       font-family: var(--font-family) !important;
       font-weight: bold !important;
     }
-    .bg-done { background: #10b981; }
-    .bg-progress { background: #f59e0b; color: #fff; }
-    .bg-pending { background: #ef4444; }
+    .bg-done { background: #10b981; color: #ffffff; }
+    .bg-progress { background: #f59e0b; color: #ffffff; }
+    .bg-pending { background: #ef4444; color: #ffffff; }
     #loader { font-size: 1.05em; color: var(--primary-blue); margin-bottom: 15px; }
   </style>
 </head>
@@ -367,6 +395,24 @@
   <script>
     function toggleNightMode() {
       document.body.classList.toggle('dark-mode');
+      
+      const isDark = document.body.classList.contains('dark-mode');
+      const textColor = isDark ? '#94a3b8' : '#64748b';
+      const gridColor = isDark ? 'rgba(51, 65, 85, 0.4)' : 'rgba(226, 232, 240, 0.6)';
+
+      Object.keys(chartInstances).forEach(key => {
+        const chart = chartInstances[key];
+        if (chart && chart.options.scales) {
+          if (chart.options.scales.x) {
+            chart.options.scales.x.ticks.color = textColor;
+          }
+          if (chart.options.scales.y) {
+            chart.options.scales.y.ticks.color = textColor;
+            if (chart.options.scales.y.grid) chart.options.scales.y.grid.color = gridColor;
+          }
+          chart.update();
+        }
+      });
     }
 
     // Protection logic
@@ -560,7 +606,6 @@
       const overallRsiRegions = new Set();
       const overallRsiAp1s = new Set();
       
-      // Distinct Active Stores (RSI = 1 across any model) and Unique FTs
       const uniqueStoresSet = new Set();
       const uniqueFtSet = new Set();
 
@@ -647,10 +692,8 @@
               }
             });
 
-            // Filter out non-RSI stores for this model
             if (rsiVal !== 1) return;
 
-            // Record Unique Store Key (MCS CODE or Store Name) and FT Name
             const storeIdentifier = mcs || storeName;
             if (storeIdentifier) uniqueStoresSet.add(storeIdentifier);
             if (ft && ft !== 'NO FT TAGGING') uniqueFtSet.add(ft);
@@ -705,9 +748,17 @@
             addDataToAgg(dealerAgg, dealer);
 
             const addDataToOverall = (ovObj, key) => {
-              if (!ovObj[key]) ovObj[key] = { target: 0, actual: 0 };
-              ovObj[key].target += rowTarget;
-              ovObj[key].actual += rowActual;
+              if (!ovObj[key]) {
+                ovObj[key] = { targetFF: 0, actualFF: 0, targetFSM: 0, actualFSM: 0, modelsSet: new Set() };
+              }
+              ovObj[key].targetFF += targetFF;
+              ovObj[key].actualFF += storeActualFF;
+              ovObj[key].targetFSM += targetFSM;
+              ovObj[key].actualFSM += storeActualFSM;
+
+              if (rowTarget > 0 || rowActual > 0) {
+                ovObj[key].modelsSet.add(model);
+              }
             };
 
             addDataToOverall(overallFtAgg, ft);
@@ -861,9 +912,9 @@
                 <tr>
                   <th rowspan="2">${groupTitle}</th>
                   ${extraColName ? `<th rowspan="2">${extraColName}</th>` : ''}
-                  ${maxFreqFF > 0 ? `<th colspan="${maxFreqFF + 1}" style="text-align:center; background:#e0f2fe; color:#0369a1;">FIELD FORCE (FF)</th>` : ''}
-                  ${maxFreqFSM > 0 ? `<th colspan="${maxFreqFSM + 1}" style="text-align:center; background:#ffedd5; color:#c2410c;">FSM</th>` : ''}
-                  <th colspan="4" style="text-align:center; background:#dcfce7; color:#15803d;">TOTAL SUMMARY</th>
+                  ${maxFreqFF > 0 ? `<th colspan="${maxFreqFF + 1}" class="th-ff" style="text-align:center;">FIELD FORCE (FF)</th>` : ''}
+                  ${maxFreqFSM > 0 ? `<th colspan="${maxFreqFSM + 1}" class="th-fsm" style="text-align:center;">FSM</th>` : ''}
+                  <th colspan="4" class="th-total" style="text-align:center;">TOTAL SUMMARY</th>
                 </tr>
                 <tr>
                   ${maxFreqFF > 0 ? `<th>Target</th>${ffHeaders}` : ''}
@@ -1026,16 +1077,24 @@
         }
       });
 
+      // ACTIVE MODELS LOGIC (<100% ACH)
+      const activeModelsCount = overallProgressModels + overallPendingModels;
+      const totalModelsCount = models.length;
+
       // BUILD OVERALL SUMMARY TAB CONTENT
       grandTotalActual = Math.round(grandTotalActual);
       const grandAchVal = grandTotalTarget > 0 ? ((grandTotalActual / grandTotalTarget) * 100) : 0;
       const grandAch = grandAchVal.toFixed(1);
 
-      // OVERALL SUMMARY CARDS WITH UNIQUE ACTIVE STORES HC
       globalSummaryStore["OVERALL SUMMARY"] = `
         <div class="card">
           <h4>Active Models</h4>
-          <div class="value">${models.length}</div>
+          <div class="value">${activeModelsCount}</div>
+          <div class="sub-value">In Progress (&lt;100% ACH)</div>
+        </div>
+        <div class="card">
+          <h4>Total Models</h4>
+          <div class="value">${totalModelsCount}</div>
           <div class="sub-value">Total NPL Lineup</div>
         </div>
         <div class="card">
@@ -1072,40 +1131,137 @@
       const buildSimpleSummaryRows = (ovObj, extraMap = null, extraType = '') => {
         const keys = Object.keys(ovObj);
         if (keys.length === 0) {
-          return `<tr><td colspan="6" style="text-align:center; color:#888;">No Data Available</td></tr>`;
+          return `<tr><td colspan="12" style="text-align:center; color:#888;">No Data Available</td></tr>`;
         }
 
         return keys.map(key => {
           const item = ovObj[key];
-          const target = item.target;
-          const actual = Math.round(item.actual);
-          const achVal = target > 0 ? ((actual / target) * 100) : 0;
+          
+          const targetFF = item.targetFF || 0;
+          const actualFF = Math.round(item.actualFF || 0);
+          const achFFVal = targetFF > 0 ? ((actualFF / targetFF) * 100) : 0;
+          const achFF = achFFVal.toFixed(1);
+
+          const targetFSM = item.targetFSM || 0;
+          const actualFSM = Math.round(item.actualFSM || 0);
+          const achFSMVal = targetFSM > 0 ? ((actualFSM / targetFSM) * 100) : 0;
+          const achFSM = achFSMVal.toFixed(1);
+
+          const totalTarget = targetFF + targetFSM;
+          const totalActual = actualFF + actualFSM;
+          const achVal = totalTarget > 0 ? ((totalActual / totalTarget) * 100) : 0;
           const ach = achVal.toFixed(1);
+
           const targetColorClass = getTargetColorClass(achVal);
 
           let badge = 'bg-pending', status = 'NOT STARTED';
           if (achVal >= 100) { badge = 'bg-done'; status = 'DONE'; }
-          else if (actual > 0) { badge = 'bg-progress'; status = 'IN PROGRESS'; }
+          else if (totalActual > 0) { badge = 'bg-progress'; status = 'IN PROGRESS'; }
 
           let extraTd = '', dataAttr = '';
           if (extraType && extraMap) {
             const extraVal = extraMap[key] || 'N/A';
             extraTd = `<td>${extraVal}</td>`;
             if (extraType === 'Region') dataAttr = `data-region="${extraVal}"`;
-            else if (extraType === 'AP1') dataAttr = `data-ap1="${extraVal}"`;
           }
 
           return `
             <tr ${dataAttr}>
               <td class="${targetColorClass}"><b>${key}</b></td>
               ${extraTd}
-              <td><b>${target}</b></td>
-              <td><b>${actual}</b></td>
+              <td class="td-ff">${targetFF}</td>
+              <td class="td-ff">${actualFF}</td>
+              <td class="td-ff"><b>${achFF}%</b></td>
+              <td class="td-fsm">${targetFSM}</td>
+              <td class="td-fsm">${actualFSM}</td>
+              <td class="td-fsm"><b>${achFSM}%</b></td>
+              <td><b>${totalTarget}</b></td>
+              <td><b>${totalActual}</b></td>
               <td><b>${ach}%</b></td>
               <td><span class="badge ${badge}">${status}</span></td>
             </tr>
           `;
         }).join('');
+      };
+
+      const buildOverallDealerSummaryRows = (ovObj, extraMap = null) => {
+        const keys = Object.keys(ovObj);
+        if (keys.length === 0) {
+          return `<tr><td colspan="13" style="text-align:center; color:#888;">No Data Available</td></tr>`;
+        }
+
+        return keys.map(key => {
+          const item = ovObj[key];
+          
+          const targetFF = item.targetFF || 0;
+          const actualFF = Math.round(item.actualFF || 0);
+          const achFFVal = targetFF > 0 ? ((actualFF / targetFF) * 100) : 0;
+          const achFF = achFFVal.toFixed(1);
+
+          const targetFSM = item.targetFSM || 0;
+          const actualFSM = Math.round(item.actualFSM || 0);
+          const achFSMVal = targetFSM > 0 ? ((actualFSM / targetFSM) * 100) : 0;
+          const achFSM = achFSMVal.toFixed(1);
+
+          const totalTarget = targetFF + targetFSM;
+          const totalActual = actualFF + actualFSM;
+          const achVal = totalTarget > 0 ? ((totalActual / totalTarget) * 100) : 0;
+          const ach = achVal.toFixed(1);
+
+          const modelsCount = item.modelsSet ? item.modelsSet.size : 0;
+          const targetColorClass = getTargetColorClass(achVal);
+
+          let badge = 'bg-pending', status = 'NOT STARTED';
+          if (achVal >= 100) { badge = 'bg-done'; status = 'DONE'; }
+          else if (totalActual > 0) { badge = 'bg-progress'; status = 'IN PROGRESS'; }
+
+          const extraVal = extraMap[key] || 'N/A';
+
+          return `
+            <tr data-ap1="${extraVal}">
+              <td class="${targetColorClass}"><b>${key}</b></td>
+              <td>${extraVal}</td>
+              <td class="td-models" style="text-align:center; font-weight:bold;">${modelsCount}</td>
+              <td class="td-ff">${targetFF}</td>
+              <td class="td-ff">${actualFF}</td>
+              <td class="td-ff"><b>${achFF}%</b></td>
+              <td class="td-fsm">${targetFSM}</td>
+              <td class="td-fsm">${actualFSM}</td>
+              <td class="td-fsm"><b>${achFSM}%</b></td>
+              <td><b>${totalTarget}</b></td>
+              <td><b>${totalActual}</b></td>
+              <td><b>${ach}%</b></td>
+              <td><span class="badge ${badge}">${status}</span></td>
+            </tr>
+          `;
+        }).join('');
+      };
+
+      const buildOverallHeaderHTML = (groupTitle, extraColName = '', isDealer = false) => {
+        return `
+          <thead>
+            <tr>
+              <th rowspan="2">${groupTitle}</th>
+              ${extraColName ? `<th rowspan="2">${extraColName}</th>` : ''}
+              ${isDealer ? `<th rowspan="2" style="text-align:center;">Models Covered</th>` : ''}
+              <th colspan="3" class="th-ff" style="text-align:center;">FIELD FORCE (FF)</th>
+              <th colspan="3" class="th-fsm" style="text-align:center;">FSM</th>
+              <th colspan="4" class="th-total" style="text-align:center;">TOTAL OVERALL SUMMARY</th>
+            </tr>
+            <tr>
+              <th class="th-ff">Target</th>
+              <th class="th-ff">Actual</th>
+              <th class="th-ff">ACH %</th>
+              <th class="th-fsm">Target</th>
+              <th class="th-fsm">Actual</th>
+              <th class="th-fsm">ACH %</th>
+              <th>Target HC</th>
+              <th>Actual HC</th>
+              <th>ACH %</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+        `;
       };
 
       const overallRegionOptions = ['ALL', ...Array.from(overallRsiRegions).sort()].map(r => `<option value="${r}">${r}</option>`).join('');
@@ -1141,15 +1297,7 @@
           <div class="table-container">
             <h3>📍 Overall Area Summary (All Models)</h3>
             <table>
-              <thead>
-                <tr>
-                  <th>Area</th>
-                  <th>Target HC</th>
-                  <th>Actual HC</th>
-                  <th>ACH %</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
+              ${buildOverallHeaderHTML('Area')}
               <tbody>${buildSimpleSummaryRows(overallAreaAgg)}</tbody>
             </table>
           </div>
@@ -1165,16 +1313,7 @@
               </div>
             </div>
             <table>
-              <thead>
-                <tr>
-                  <th>FT Name</th>
-                  <th>Region</th>
-                  <th>Target HC</th>
-                  <th>Actual HC</th>
-                  <th>ACH %</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
+              ${buildOverallHeaderHTML('FT Name', 'Region')}
               <tbody id="tbody-ft-OVERALL-SUMMARY">${buildSimpleSummaryRows(overallFtAgg, overallFtRegionMap, 'Region')}</tbody>
             </table>
           </div>
@@ -1190,17 +1329,8 @@
               </div>
             </div>
             <table>
-              <thead>
-                <tr>
-                  <th>Dealer</th>
-                  <th>AP1</th>
-                  <th>Target HC</th>
-                  <th>Actual HC</th>
-                  <th>ACH %</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody id="tbody-dealer-OVERALL-SUMMARY">${buildSimpleSummaryRows(overallDealerAgg, overallDealerAp1Map, 'AP1')}</tbody>
+              ${buildOverallHeaderHTML('Dealer', 'AP1', true)}
+              <tbody id="tbody-dealer-OVERALL-SUMMARY">${buildOverallDealerSummaryRows(overallDealerAgg, overallDealerAp1Map)}</tbody>
             </table>
           </div>
         </div>
@@ -1226,8 +1356,12 @@
         }
       });
 
+      const isDark = document.body.classList.contains('dark-mode');
+      const textColor = isDark ? '#94a3b8' : '#64748b';
+      const gridColor = isDark ? 'rgba(51, 65, 85, 0.4)' : 'rgba(226, 232, 240, 0.6)';
+
       const commonGridStyle = {
-        color: 'rgba(226, 232, 240, 0.6)',
+        color: gridColor,
         drawBorder: false
       };
 
@@ -1253,7 +1387,7 @@
             plugins: {
               legend: {
                 position: 'bottom',
-                labels: { boxWidth: 8, boxHeight: 8, usePointStyle: true, padding: 16, font: { size: 11, weight: '600' } }
+                labels: { boxWidth: 8, boxHeight: 8, usePointStyle: true, padding: 16, font: { size: 11, weight: '600' }, color: textColor }
               }
             }
           }
@@ -1279,12 +1413,12 @@
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-              x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#94a3b8' } },
+              x: { grid: { display: false }, ticks: { font: { size: 11 }, color: textColor } },
               y: {
                 beginAtZero: true,
                 max: 100,
                 grid: commonGridStyle,
-                ticks: { font: { size: 11 }, color: '#94a3b8', callback: (value) => value + '%' }
+                ticks: { font: { size: 11 }, color: textColor, callback: (value) => value + '%' }
               }
             },
             plugins: {
@@ -1305,7 +1439,7 @@
               {
                 label: 'Target HC',
                 data: data.target,
-                backgroundColor: '#cbd5e1',
+                backgroundColor: isDark ? '#334155' : '#cbd5e1',
                 borderRadius: 8,
                 barThickness: 16
               },
@@ -1322,11 +1456,11 @@
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-              x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#94a3b8' } },
-              y: { beginAtZero: true, grid: commonGridStyle, ticks: { font: { size: 11 }, color: '#94a3b8' } }
+              x: { grid: { display: false }, ticks: { font: { size: 11 }, color: textColor } },
+              y: { beginAtZero: true, grid: commonGridStyle, ticks: { font: { size: 11 }, color: textColor } }
             },
             plugins: {
-              legend: { position: 'bottom', labels: { boxWidth: 8, usePointStyle: true, padding: 16, font: { size: 11 } } }
+              legend: { position: 'bottom', labels: { boxWidth: 8, usePointStyle: true, padding: 16, font: { size: 11 }, color: textColor } }
             }
           }
         });
