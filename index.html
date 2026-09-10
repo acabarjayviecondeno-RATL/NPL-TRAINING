@@ -32,7 +32,7 @@
     :root {
       --bg-dashboard: #f4f7fe;
       --card-bg: #ffffff;
-      --primary-blue: #2563eb;
+      --primary-blue: #1428a0; /* Samsung Blue */
       --secondary-cyan: #06b6d4;
       --text-main: #1e293b;
       --text-muted: #8e9babb8;
@@ -55,7 +55,7 @@
     body.dark-mode {
       --bg-dashboard: #0b0f19;
       --card-bg: #151d2a;
-      --primary-blue: #3b82f6;
+      --primary-blue: #2141c6;
       --secondary-cyan: #22d3ee;
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
@@ -89,6 +89,73 @@
 
     @media print { body { display: none !important; } }
 
+    /* Login Overlay Styles - Solid Black Aesthetic */
+    #login-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #000000;
+      z-index: 99999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .login-card {
+      background: #121212;
+      padding: 40px 35px;
+      border-radius: 24px;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.8);
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+      border: 1px solid #262626;
+    }
+    .login-card h2 { 
+      margin-top: 0; 
+      margin-bottom: 8px; 
+      color: #ffffff; 
+      font-size: 1.45em; 
+      letter-spacing: -0.5px;
+    }
+    .login-card p { 
+      color: #a3a3a3; 
+      font-size: 0.85em; 
+      margin-bottom: 28px; 
+    }
+    .login-card input {
+      width: 100%;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+      border: 2px solid #262626;
+      border-radius: 14px;
+      box-sizing: border-box;
+      font-size: 0.95em;
+      background: #000000;
+      color: #ffffff;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .login-card input:focus {
+      border-color: #2141c6;
+    }
+    .login-card button {
+      width: 100%;
+      padding: 14px;
+      background-color: #2141c6;
+      color: white;
+      border: none;
+      border-radius: 14px;
+      font-size: 0.95em;
+      cursor: pointer;
+      font-weight: bold;
+      letter-spacing: 0.3px;
+      transition: background-color 0.2s, opacity 0.2s;
+    }
+    .login-card button:hover { opacity: 0.92; background-color: #1428a0; }
+    #loading-log { display: none; margin-top: 12px; color: #a3a3a3; font-size: 0.85em; }
+
     #security-overlay {
       display: none;
       position: fixed;
@@ -104,6 +171,10 @@
       font-size: 1.5em;
       font-weight: bold;
       color: #dc2626;
+    }
+
+    #main-dashboard-container {
+      display: none;
     }
 
     b, strong, h1, h2, h3, h4, th, .tab-btn, .value, .bold {
@@ -203,7 +274,7 @@
     .tab-btn.active {
       background: var(--primary-blue);
       color: #ffffff;
-      box-shadow: 0 8px 16px rgba(37, 99, 235, 0.25);
+      box-shadow: 0 8px 16px rgba(20, 40, 160, 0.25);
     }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
@@ -239,7 +310,6 @@
       border-radius: 20px;
       box-shadow: var(--card-shadow);
       border: 1px solid var(--border-color);
-      overflow-x: auto;
     }
     .table-header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 12px; }
     .table-header-flex h3 { margin: 0; font-size: 1.05em; color: var(--text-main); }
@@ -257,9 +327,30 @@
       outline: none;
     }
 
+    /* Table Wrapper para magka-radius ang mismong gilid ng table at may horizontal scroll kung kinakailangan */
+    .table-responsive-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      border-radius: 14px;
+      border: 1px solid var(--border-color);
+    }
+
     table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
     th, td { padding: 12px 14px; border-bottom: 1px solid var(--border-color); text-align: left; white-space: nowrap; color: var(--text-main); }
-    th { background: var(--border-color); color: var(--text-main); font-weight: bold; border-radius: 8px; }
+    
+    /* Straight/diretso ang mga gilid sa loob ng table */
+    th { background: var(--border-color); color: var(--text-main); font-weight: bold; border-radius: 0 !important; }
+
+    /* Hover effect para sa buong row ng table */
+    tbody tr {
+      transition: background-color 0.15s ease;
+    }
+    tbody tr:hover {
+      background-color: rgba(20, 40, 160, 0.06) !important;
+    }
+    body.dark-mode tbody tr:hover {
+      background-color: rgba(34, 211, 238, 0.08) !important;
+    }
 
     .th-ff { background-color: var(--th-ff-bg) !important; color: var(--th-ff-text) !important; }
     .th-fsm { background-color: var(--th-fsm-bg) !important; color: var(--th-fsm-text) !important; }
@@ -270,10 +361,10 @@
     .td-models { background-color: var(--td-models-bg) !important; color: var(--secondary-cyan) !important; }
 
     /* Conditional Formatting Color Classes */
-    .bg-target-red { background-color: #fee2e2 !important; color: #991b1b !important; }       /* Red: < 80% (malayo sa target) */
-    .bg-target-orange { background-color: #ffedd5 !important; color: #c2410c !important; }    /* Orange: 80% - 94.9% */
-    .bg-target-green { background-color: #dcfce7 !important; color: #166534 !important; }     /* Green: 95% - 99.9% */
-    .bg-target-blue { background-color: #dbeafe !important; color: #1e40af !important; }      /* Blue: >= 100% (on target o lampas) */
+    .bg-target-red { background-color: #fee2e2 !important; color: #991b1b !important; }
+    .bg-target-orange { background-color: #ffedd5 !important; color: #c2410c !important; }
+    .bg-target-green { background-color: #dcfce7 !important; color: #166534 !important; }
+    .bg-target-blue { background-color: #dbeafe !important; color: #1e40af !important; }
 
     body.dark-mode .bg-target-red { background-color: #451212 !important; color: #fca5a5 !important; }
     body.dark-mode .bg-target-orange { background-color: #431407 !important; color: #fdba74 !important; }
@@ -300,31 +391,90 @@
 </head>
 <body oncontextmenu="return false;">
 
-  <div id="security-overlay">Screenshot & Saving Restricted for Security Purposes</div>
-
-  <div class="sticky-top-wrapper">
-    <div class="header">
-      <div>
-        <h1>NPL Dynamic Training Dashboard</h1>
-        <p>Visual Analytics & Interactive Performance Metrics</p>
-      </div>
-      <div class="header-controls">
-        <button class="btn-toggle" onclick="toggleNightMode()">🌙 Night Mode</button>
-        <div class="live-status">
-          <span class="pulse-dot"></span>
-          <span id="syncText">CONNECTING...</span>
-        </div>
-      </div>
+  <!-- LOGIN POPUP OVERLAY WITH SOLID BLACK BACKGROUND -->
+  <div id="login-overlay" style="display: none;">
+    <div class="login-card">
+      <h2>Welcome to NPL Dashboard</h2>
+      <p>Please enter your nickname to proceed</p>
+      <form id="loginForm">
+        <input type="text" id="nicknameInput" placeholder="e.g. Jayvie" required autocomplete="off">
+        <button type="submit" id="loginBtn">Enter Dashboard</button>
+        <div id="loading-log">Saving log...</div>
+      </form>
     </div>
-
-    <div id="loader" class="bold">Fetching data directly from Google Sheets...</div>
-    <div class="tabs" id="tabsContainer"></div>
-    <div id="summaryCardsContainer" class="cards-grid"></div>
   </div>
 
-  <div id="contentsContainer"></div>
+  <div id="security-overlay">Screenshot & Saving Restricted for Security Purposes</div>
+
+  <div id="main-dashboard-container">
+    <div class="sticky-top-wrapper">
+      <div class="header">
+        <div>
+          <h1>NPL Dynamic Training Dashboard</h1>
+          <p>Visual Analytics & Interactive Performance Metrics</p>
+        </div>
+        <div class="header-controls">
+          <button class="btn-toggle" onclick="toggleNightMode()">🌙 Night Mode</button>
+          <div class="live-status">
+            <span class="pulse-dot"></span>
+            <span id="syncText">CONNECTING...</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="loader" class="bold">Fetching data directly from Google Sheets...</div>
+      <div class="tabs" id="tabsContainer"></div>
+      <div id="summaryCardsContainer" class="cards-grid"></div>
+    </div>
+
+    <div id="contentsContainer"></div>
+  </div>
 
   <script>
+    // GOOGLE APPS SCRIPT WEB APP URL FOR LOG SHEET
+    const LOG_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx61rfmLTrn7MlVQr9h-Bsv02KoLoBFQJ2DBfQMQ4_0XzrG1vOu6v_OJl_4hg-SppLiKg/exec";
+
+    const loginForm = document.getElementById('loginForm');
+    const loginOverlay = document.getElementById('login-overlay');
+    const mainDashboardContainer = document.getElementById('main-dashboard-container');
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const isLogged = sessionStorage.getItem('npl_logged_in');
+      if (isLogged === 'true') {
+        loginOverlay.style.display = 'none';
+        mainDashboardContainer.style.display = 'block';
+        fetchCSVData();
+      } else {
+        loginOverlay.style.display = 'flex';
+      }
+    });
+
+    loginForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const nickname = document.getElementById('nicknameInput').value.trim();
+      if (!nickname) return;
+
+      sessionStorage.setItem('npl_logged_in', 'true');
+      loginOverlay.style.display = 'none';
+      mainDashboardContainer.style.display = 'block';
+      fetchCSVData();
+
+      const deviceInfo = navigator.userAgent;
+      const logData = {
+        nickname: nickname,
+        device: deviceInfo
+      };
+
+      fetch(LOG_SCRIPT_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(logData)
+      }).catch(err => {
+        console.error("Log error background sync:", err);
+      });
+    });
+
     document.addEventListener('keydown', function(e) {
       if (
         e.keyCode === 44 ||
@@ -525,11 +675,6 @@
       });
     }
 
-    // Conditional formatting base sa iyong pamantayan:
-    // Blue: >= 100% (On target o lampas)
-    // Green: 95% - 99.9% (Malapit sa target, nasa loob ng 5%)
-    // Orange: 80% - 94.9% (Medyo malayo, nasa loob ng 20%)
-    // Red: < 80% (Higit sa 50% ang layo / mababa)
     function getTargetColorClass(ach) {
       if (ach >= 100) return 'bg-target-blue';
       if (ach >= 95) return 'bg-target-green';
@@ -810,7 +955,6 @@
               const achVal = totalTarget > 0 ? ((totalActual / totalTarget) * 100) : 0;
               const ach = achVal.toFixed(1);
               
-              // Nilalagyan ng conditional color class ang unang col (Pangalan/Region/FT/Dealer) batay sa target
               const targetColorClass = getTargetColorClass(achVal);
 
               let badge = 'bg-pending', status = 'NOT STARTED';
@@ -953,18 +1097,22 @@
             <div class="tables-layout">
               <div class="table-container">
                 <h3>📍 Area Training Summary</h3>
-                <table>
-                  ${buildHeaderHTML('Area')}
-                  <tbody>${buildDetailedSummaryRows(areaAgg)}</tbody>
-                </table>
+                <div class="table-responsive-wrapper">
+                  <table>
+                    ${buildHeaderHTML('Area')}
+                    <tbody>${buildDetailedSummaryRows(areaAgg)}</tbody>
+                  </table>
+                </div>
               </div>
 
               <div class="table-container">
                 <h3>🏢 AP1 Training Summary</h3>
-                <table>
-                  ${buildHeaderHTML('AP1')}
-                  <tbody>${buildDetailedSummaryRows(ap1Agg)}</tbody>
-                </table>
+                <div class="table-responsive-wrapper">
+                  <table>
+                    ${buildHeaderHTML('AP1')}
+                    <tbody>${buildDetailedSummaryRows(ap1Agg)}</tbody>
+                  </table>
+                </div>
               </div>
 
               <div class="table-container">
@@ -977,10 +1125,12 @@
                     </select>
                   </div>
                 </div>
-                <table>
-                  ${buildHeaderHTML('FT Name', 'Region')}
-                  <tbody id="tbody-ft-${safeModelId}">${buildDetailedSummaryRows(ftAgg, ftRegionMap, 'Region')}</tbody>
-                </table>
+                <div class="table-responsive-wrapper">
+                  <table>
+                    ${buildHeaderHTML('FT Name', 'Region')}
+                    <tbody id="tbody-ft-${safeModelId}">${buildDetailedSummaryRows(ftAgg, ftRegionMap, 'Region')}</tbody>
+                  </table>
+                </div>
               </div>
 
               <div class="table-container">
@@ -993,10 +1143,12 @@
                     </select>
                   </div>
                 </div>
-                <table>
-                  ${buildHeaderHTML('Dealer', 'AP1')}
-                  <tbody id="tbody-dealer-${safeModelId}">${buildDetailedSummaryRows(dealerAgg, dealerAp1Map, 'AP1')}</tbody>
-                </table>
+                <div class="table-responsive-wrapper">
+                  <table>
+                    ${buildHeaderHTML('Dealer', 'AP1')}
+                    <tbody id="tbody-dealer-${safeModelId}">${buildDetailedSummaryRows(dealerAgg, dealerAp1Map, 'AP1')}</tbody>
+                  </table>
+                </div>
               </div>
             </div>
           `;
@@ -1230,18 +1382,22 @@
         <div class="tables-layout" style="margin-top: 15px;">
           <div class="table-container">
             <h3>📍 Overall Area Summary (All Models)</h3>
-            <table>
-              ${buildOverallHeaderHTML('Area')}
-              <tbody>${buildSimpleSummaryRows(overallAreaAgg)}</tbody>
-            </table>
+            <div class="table-responsive-wrapper">
+              <table>
+                ${buildOverallHeaderHTML('Area')}
+                <tbody>${buildSimpleSummaryRows(overallAreaAgg)}</tbody>
+              </table>
+            </div>
           </div>
 
           <div class="table-container">
             <h3>🏢 Overall AP1 Summary (All Models)</h3>
-            <table>
-              ${buildOverallHeaderHTML('AP1')}
-              <tbody>${buildSimpleSummaryRows(overallAp1Agg)}</tbody>
-            </table>
+            <div class="table-responsive-wrapper">
+              <table>
+                ${buildOverallHeaderHTML('AP1')}
+                <tbody>${buildSimpleSummaryRows(overallAp1Agg)}</tbody>
+              </table>
+            </div>
           </div>
 
           <div class="table-container">
@@ -1254,10 +1410,12 @@
                 </select>
               </div>
             </div>
-            <table>
-              ${buildOverallHeaderHTML('FT Name', 'Region')}
-              <tbody id="tbody-ft-OVERALL-SUMMARY">${buildSimpleSummaryRows(overallFtAgg, overallFtRegionMap, 'Region')}</tbody>
-            </table>
+            <div class="table-responsive-wrapper">
+              <table>
+                ${buildOverallHeaderHTML('FT Name', 'Region')}
+                <tbody id="tbody-ft-OVERALL-SUMMARY">${buildSimpleSummaryRows(overallFtAgg, overallFtRegionMap, 'Region')}</tbody>
+              </table>
+            </div>
           </div>
 
           <div class="table-container">
@@ -1270,10 +1428,12 @@
                 </select>
               </div>
             </div>
-            <table>
-              ${buildOverallHeaderHTML('Dealer', 'AP1', true)}
-              <tbody id="tbody-dealer-OVERALL-SUMMARY">${buildOverallDealerSummaryRows(overallDealerAgg, overallDealerAp1Map)}</tbody>
-            </table>
+            <div class="table-responsive-wrapper">
+              <table>
+                ${buildOverallHeaderHTML('Dealer', 'AP1', true)}
+                <tbody id="tbody-dealer-OVERALL-SUMMARY">${buildOverallDealerSummaryRows(overallDealerAgg, overallDealerAp1Map)}</tbody>
+              </table>
+            </div>
           </div>
         </div>
       `;
@@ -1307,7 +1467,7 @@
           type: 'doughnut',
           data: {
             labels: ['DONE (100%+)', 'IN PROGRESS', 'NOT STARTED'],
-            datasets: [{ data: data.status, backgroundColor: ['#0284c7', '#38bdf8', '#cbd5e1'], borderWidth: 0, hoverOffset: 4 }]
+            datasets: [{ data: data.status, backgroundColor: ['#1428a0', '#38bdf8', '#cbd5e1'], borderWidth: 0, hoverOffset: 4 }]
           },
           options: {
             responsive: true,
@@ -1328,7 +1488,7 @@
           type: 'bar',
           data: {
             labels: data.areas,
-            datasets: [{ label: 'ACH %', data: data.ach, backgroundColor: '#2563eb', borderRadius: 8, borderSkipped: false, barThickness: 22 }]
+            datasets: [{ label: 'ACH %', data: data.ach, backgroundColor: '#1428a0', borderRadius: 8, borderSkipped: false, barThickness: 22 }]
           },
           options: {
             responsive: true,
@@ -1371,7 +1531,6 @@
       }
     }
 
-    fetchCSVData();
     setInterval(fetchCSVData, 60000);
   </script>
 </body>
