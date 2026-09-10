@@ -269,10 +269,11 @@
     .td-fsm { background-color: var(--td-fsm-bg) !important; }
     .td-models { background-color: var(--td-models-bg) !important; color: var(--secondary-cyan) !important; }
 
-    .bg-target-red { background-color: #fef2f2 !important; color: #991b1b !important; }
-    .bg-target-orange { background-color: #fff7ed !important; color: #c2410c !important; }
-    .bg-target-green { background-color: #f0fdf4 !important; color: #166534 !important; }
-    .bg-target-blue { background-color: #eff6ff !important; color: #1e40af !important; }
+    /* Conditional Formatting Color Classes */
+    .bg-target-red { background-color: #fee2e2 !important; color: #991b1b !important; }       /* Red: < 80% (malayo sa target) */
+    .bg-target-orange { background-color: #ffedd5 !important; color: #c2410c !important; }    /* Orange: 80% - 94.9% */
+    .bg-target-green { background-color: #dcfce7 !important; color: #166534 !important; }     /* Green: 95% - 99.9% */
+    .bg-target-blue { background-color: #dbeafe !important; color: #1e40af !important; }      /* Blue: >= 100% (on target o lampas) */
 
     body.dark-mode .bg-target-red { background-color: #451212 !important; color: #fca5a5 !important; }
     body.dark-mode .bg-target-orange { background-color: #431407 !important; color: #fdba74 !important; }
@@ -524,6 +525,11 @@
       });
     }
 
+    // Conditional formatting base sa iyong pamantayan:
+    // Blue: >= 100% (On target o lampas)
+    // Green: 95% - 99.9% (Malapit sa target, nasa loob ng 5%)
+    // Orange: 80% - 94.9% (Medyo malayo, nasa loob ng 20%)
+    // Red: < 80% (Higit sa 50% ang layo / mababa)
     function getTargetColorClass(ach) {
       if (ach >= 100) return 'bg-target-blue';
       if (ach >= 95) return 'bg-target-green';
@@ -531,10 +537,6 @@
       return 'bg-target-red';
     }
 
-    // Timeline Logic para sa Last Freq:
-    // - Done: ACH >= 100%
-    // - On-Track: StartDate <= Today <= EndDate at ACH < 100% (o bago pa magsimula)
-    // - Off-Track: Today > EndDate at ACH < 100%
     function computeTimelineStatus(startDateStr, endDateStr, achVal) {
       if (achVal >= 100) {
         return { text: "Done", badge: "bg-done" };
@@ -613,7 +615,6 @@
             }
           });
 
-          // Hanapin ang Last Freq Start at End Date para sa model na ito
           let lastFreqStart = '';
           let lastFreqEnd = '';
           
@@ -627,7 +628,6 @@
               }
             }
           });
-          // Fallback kung walang mahanap na frequency end date
           if (!lastFreqEnd && cols.length > 0) {
             lastFreqStart = cols[cols.length - 1].startDate;
             lastFreqEnd = cols[cols.length - 1].endDate;
@@ -809,6 +809,8 @@
               const totalActual = Math.round(actFF + actFSM);
               const achVal = totalTarget > 0 ? ((totalActual / totalTarget) * 100) : 0;
               const ach = achVal.toFixed(1);
+              
+              // Nilalagyan ng conditional color class ang unang col (Pangalan/Region/FT/Dealer) batay sa target
               const targetColorClass = getTargetColorClass(achVal);
 
               let badge = 'bg-pending', status = 'NOT STARTED';
@@ -833,7 +835,6 @@
                 else if (extraType === 'AP1') dataAttr = `data-ap1="${extraVal}"`;
               }
 
-              // Isang Timeline column gamit ang Last Freq Start at End Date at Overall ACH % ng row
               const timelineRes = computeTimelineStatus(lastFreqStart, lastFreqEnd, achVal);
 
               return `
