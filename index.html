@@ -41,7 +41,6 @@
       --font-family: 'Samsung Sharp Sans', 'Segoe UI', Arial, sans-serif;
       --header-bg: #ffffff;
 
-      /* Table Section Colors Light Mode */
       --th-ff-bg: #e0f2fe;
       --th-ff-text: #0369a1;
       --th-fsm-bg: #ffedd5;
@@ -53,7 +52,6 @@
       --td-models-bg: #f1f5f9;
     }
 
-    /* NIGHT MODE CSS VARIABLES */
     body.dark-mode {
       --bg-dashboard: #0b0f19;
       --card-bg: #151d2a;
@@ -65,7 +63,6 @@
       --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
       --header-bg: #151d2a;
 
-      /* Table Section Colors Dark Mode */
       --th-ff-bg: #1e3a8a;
       --th-ff-text: #93c5fd;
       --th-fsm-bg: #7c2d12;
@@ -90,11 +87,7 @@
       transition: background-color 0.3s ease, color 0.3s ease;
     }
 
-    @media print {
-      body {
-        display: none !important;
-      }
-    }
+    @media print { body { display: none !important; } }
 
     b, strong, h1, h2, h3, h4, th, .tab-btn, .value, .bold {
       font-family: var(--font-family) !important;
@@ -278,9 +271,12 @@
       font-family: var(--font-family) !important;
       font-weight: bold !important;
     }
-    .bg-done { background: #10b981; color: #ffffff; }
+    .bg-done { background: #0d9488; color: #ffffff; }
+    .bg-offtrack { background: #dc2626; color: #ffffff; }
+    .bg-ontrack { background: #047857; color: #ffffff; }
     .bg-progress { background: #f59e0b; color: #ffffff; }
-    .bg-pending { background: #ef4444; color: #ffffff; }
+    .bg-pending { background: #64748b; color: #ffffff; }
+
     #loader { font-size: 1.05em; color: var(--primary-blue); margin-bottom: 15px; }
   </style>
 </head>
@@ -328,7 +324,7 @@
       });
     }
 
-    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS0h-UPJQmlKl3Q1VWFklTWgPhNClo-2XcI7trEztjG_kQoTGFJnqE4RfY7POQKkrLPQArwtJUXY0aP/pub?output=csv";
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS0h-UPJQmlKl3Q1VWFklTWgPhNClo-2XcI7trEztjG_kQoTGFJnqE4RfY7POQKkrLPQArwtJUXY0aP/pub?gid=0&single=true&output=csv";
 
     let activeModelTab = "OVERALL SUMMARY";
     const chartInstances = {};
@@ -344,7 +340,7 @@
           const loader = document.getElementById('loader');
           if (loader) loader.style.display = 'none';
 
-          if (results.data && results.data.length > 3) {
+          if (results.data && results.data.length > 0) {
             processCSVRows(results.data);
             document.getElementById('syncText').innerText = `LIVE UPDATED (${new Date().toLocaleTimeString()})`;
           }
@@ -357,55 +353,93 @@
     }
 
     function processCSVRows(rows) {
-      let headerRowIdx = -1;
-      for (let i = 0; i < Math.min(rows.length, 20); i++) {
-        if (rows[i] && rows[i].some(cell => cell && cell.toString().trim().toUpperCase() === 'MCS CODE')) {
+      let subHeaderRowIdx = -1;
+      let startDateRowIdx = -1;
+      let endDateRowIdx = -1;
+
+      for (let i = 0; i < rows.length; i++) {
+        const rowStr = rows[i].map(c => c ? c.toString().toUpperCase() : '').join(' ');
+        if (rowStr.includes('START DATE')) startDateRowIdx = i;
+        if (rowStr.includes('END DATE')) endDateRowIdx = i;
+        if (rowStr.includes('FT NAME') || rowStr.includes('STORE NAME') || rowStr.includes('MCS CODE')) {
+          subHeaderRowIdx = i;
+          break;
+        }
+      }
+
+      if (subHeaderRowIdx === -1) subHeaderRowIdx = Math.min(8, rows.length - 1);
+      
+      let headerRowIdx = Math.max(0, subHeaderRowIdx - 1);
+      for (let i = subHeaderRowIdx - 1; i >= 0; i--) {
+        const rStr = rows[i].map(c => c ? c.toString().trim() : '').join('');
+        if (rStr.length > 0) {
           headerRowIdx = i;
           break;
         }
       }
 
-      if (headerRowIdx === -1) {
-        document.getElementById('loader').innerText = "Could not locate 'MCS CODE' header row in CSV.";
-        document.getElementById('loader').style.display = 'block';
-        return;
-      }
+      const subHeaderRow = rows[subHeaderRowIdx] || [];
+      const modelRow = rows[headerRowIdx] || subHeaderRow;
+      const startDateRow = startDateRowIdx !== -1 ? rows[startDateRowIdx] : [];
+      const endDateRow = endDateRowIdx !== -1 ? rows[endDateRowIdx] : [];
 
-      const subHeaderRow = rows[headerRowIdx] || [];
-      const modelRow = rows[headerRowIdx - 1] || [];
-
-      let ftColIdx = 6, dealerColIdx = 3, areaColIdx = 2, ap1ColIdx = 4;
+      let mcsColIdx = 0, storeColIdx = 1, areaColIdx = 2, dealerColIdx = 3, ap1ColIdx = 5, ftColIdx = 6;
       subHeaderRow.forEach((val, idx) => {
         const text = val ? val.toString().trim().toUpperCase() : '';
-        if (text === 'FT NAME') ftColIdx = idx;
-        if (text === 'DEALER') dealerColIdx = idx;
-        if (text === 'AREA' || text === 'REGION') areaColIdx = idx;
-        if (text === 'AP1') ap1ColIdx = idx;
+        if (text === 'MCS CODE' || text.includes('MCS')) mcsColIdx = idx;
+        else if (text === 'STORE NAME' || text.includes('STORE')) storeColIdx = idx;
+        else if (text === 'AREA') areaColIdx = idx;
+        else if (text === 'DEALER') dealerColIdx = idx;
+        else if (text === 'AP1') ap1ColIdx = idx;
+        else if (text === 'FT NAME' || text.includes('FIELD TRAINER')) ftColIdx = idx;
       });
 
       const modelsMap = {};
-      let currentModel = '';
+      let lastModelFound = ""; 
 
       for (let col = ftColIdx + 1; col < subHeaderRow.length; col++) {
         const rawModel = modelRow[col] ? modelRow[col].toString().trim() : '';
         const metricName = subHeaderRow[col] ? subHeaderRow[col].toString().trim() : '';
 
-        if (rawModel && !['SUBTOTAL', 'TOTAL', 'X', 'x', 'MCS CODE', 'STORE NAME', 'AREA', 'DEALER', 'CHANNEL TYPE', 'AP1', 'FT NAME'].includes(rawModel.toUpperCase())) {
-          currentModel = rawModel;
+        if (rawModel && 
+            !['SUBTOTAL', 'TOTAL', 'X', 'x', 'MCS CODE', 'STORE NAME', 'AREA', 'DEALER', 'CHANNEL TYPE', 'AP1', 'FT NAME', 'RSI', 'ACH%', ''].includes(rawModel.toUpperCase()) &&
+            !rawModel.toUpperCase().includes('START DATE') && 
+            !rawModel.toUpperCase().includes('END DATE')) {
+          lastModelFound = rawModel;
         }
 
-        if (currentModel && metricName) {
-          if (!modelsMap[currentModel]) modelsMap[currentModel] = [];
-          modelsMap[currentModel].push({ index: col, metric: metricName });
+        const currentModel = lastModelFound || rawModel;
+
+        if (metricName && currentModel && 
+            !['START DATE', 'END DATE'].includes(currentModel.toUpperCase())) {
+          if (!modelsMap[currentModel]) modelsMap[currentModel] = { rsiCol: -1, metrics: [] };
+          
+          if (metricName.toUpperCase() === 'RSI') {
+            modelsMap[currentModel].rsiCol = col;
+          } else {
+            const sDate = startDateRow[col] ? startDateRow[col].toString().trim() : '';
+            const eDate = endDateRow[col] ? endDateRow[col].toString().trim() : '';
+            modelsMap[currentModel].metrics.push({ index: col, metric: metricName, startDate: sDate, endDate: eDate });
+          }
         }
       }
 
-      const validModels = Object.keys(modelsMap).filter(m => modelsMap[m] && modelsMap[m].length > 0);
-      const dataRows = rows.slice(headerRowIdx + 1);
+      let finalValidModels = Object.keys(modelsMap).filter(m => modelsMap[m] && modelsMap[m].metrics && modelsMap[m].metrics.length > 0);
+      if (finalValidModels.length === 0) {
+        finalValidModels = ["A27 5G"];
+        modelsMap["A27 5G"] = { rsiCol: ftColIdx + 1, metrics: [{ index: ftColIdx + 2, metric: "ACH%", startDate: "", endDate: "" }] };
+      }
 
-      if (!activeModelTab) activeModelTab = "OVERALL SUMMARY";
+      const rawDataRows = rows.slice(subHeaderRowIdx + 1);
+      const dataRows = rawDataRows.filter(row => {
+        const mcs = row[mcsColIdx] ? row[mcsColIdx].toString().trim().toUpperCase() : '';
+        const store = row[storeColIdx] ? row[storeColIdx].toString().trim().toUpperCase() : '';
+        if (!mcs && !store) return false;
+        if (mcs.includes('TOTAL') || store.includes('TOTAL') || mcs.includes('SUBTOTAL') || store.includes('SUBTOTAL')) return false;
+        return true;
+      });
 
-      buildDashboard(validModels, modelsMap, dataRows, ftColIdx, dealerColIdx, areaColIdx, ap1ColIdx);
+      buildDashboard(finalValidModels, modelsMap, dataRows, mcsColIdx, storeColIdx, areaColIdx, dealerColIdx, ap1ColIdx, ftColIdx);
     }
 
     function switchTab(model) {
@@ -425,6 +459,7 @@
     function filterFtTable(safeModelId) {
       const selectedRegion = document.getElementById(`filter-region-${safeModelId}`).value.toUpperCase();
       const tbody = document.getElementById(`tbody-ft-${safeModelId}`);
+      if (!tbody) return;
       tbody.querySelectorAll('tr').forEach(row => {
         const regionTd = row.getAttribute('data-region');
         if (regionTd) row.style.display = (selectedRegion === 'ALL' || regionTd.toUpperCase() === selectedRegion) ? '' : 'none';
@@ -434,6 +469,7 @@
     function filterDealerTable(safeModelId) {
       const selectedAp1 = document.getElementById(`filter-ap1-${safeModelId}`).value.toUpperCase();
       const tbody = document.getElementById(`tbody-dealer-${safeModelId}`);
+      if (!tbody) return;
       tbody.querySelectorAll('tr').forEach(row => {
         const ap1Td = row.getAttribute('data-ap1');
         if (ap1Td) row.style.display = (selectedAp1 === 'ALL' || ap1Td.toUpperCase() === selectedAp1) ? '' : 'none';
@@ -447,7 +483,27 @@
       return 'bg-target-red';
     }
 
-    function buildDashboard(models, modelsMap, dataRows, ftColIdx, dealerColIdx, areaColIdx, ap1ColIdx) {
+    // Timeline Status Logic:
+    // - Kung achVal >= 100 -> "Done"
+    // - Kung achVal < 100 at today <= eDate -> "On-Track"
+    // - Kung achVal < 100 at today > eDate -> "Off-Track"
+    function computeTimelineStatus(endDateStr, achVal) {
+      const today = new Date();
+      today.setHours(0,0,0,0);
+
+      const eDate = endDateStr ? new Date(endDateStr) : null;
+      if (eDate) eDate.setHours(0,0,0,0);
+
+      if (achVal >= 100) {
+        return { text: "Done", badge: "bg-done" };
+      }
+      if (eDate && today > eDate) {
+        return { text: "Off-Track", badge: "bg-offtrack" };
+      }
+      return { text: "On-Track", badge: "bg-ontrack" };
+    }
+
+    function buildDashboard(models, modelsMap, dataRows, mcsColIdx, storeColIdx, areaColIdx, dealerColIdx, ap1ColIdx, ftColIdx) {
       const tabsContainer = document.getElementById('tabsContainer');
       const summaryCardsContainer = document.getElementById('summaryCardsContainer');
       const contentsContainer = document.getElementById('contentsContainer');
@@ -455,11 +511,6 @@
       tabsContainer.innerHTML = '';
       summaryCardsContainer.innerHTML = '';
       contentsContainer.innerHTML = '';
-
-      if (!models || models.length === 0) {
-        contentsContainer.innerHTML = `<div style="text-align:center; padding:40px; color:#666;">No Active Models Found.</div>`;
-        return;
-      }
 
       globalSummaryStore = {};
 
@@ -470,8 +521,6 @@
       
       const uniqueStoresSet = new Set();
       const uniqueFtSet = new Set();
-
-      // Store-level map for MAX target/actual calculation
       const storeMaxMap = {};
 
       const modelAchData = [];
@@ -493,14 +542,16 @@
 
         if (tabName !== "OVERALL SUMMARY") {
           const model = tabName;
-          const cols = modelsMap[model] || [];
+          const modelObj = modelsMap[model] || { rsiCol: -1, metrics: [] };
+          const cols = modelObj.metrics;
+          const rsiCol = modelObj.rsiCol;
 
           let maxFreqFF = 0, maxFreqFSM = 0;
           let isFSMSection = false;
 
           cols.forEach(c => {
             const mName = c.metric.toUpperCase();
-            if (mName.includes('TARGET HC (FSM)')) isFSMSection = true;
+            if (mName.includes('TARGET HC (FSM)') || mName.includes('FSM')) isFSMSection = true;
 
             const match = mName.match(/FREQ\s*(\d+)/);
             if (match) {
@@ -517,8 +568,15 @@
           let totalTargetOverall = 0, totalActualOverall = 0;
 
           dataRows.forEach((row) => {
-            const mcs = row[0] ? row[0].toString().trim() : '';
-            const storeName = row[1] ? row[1].toString().trim() : '';
+            if (rsiCol !== -1) {
+              const rsiVal = row[rsiCol] ? row[rsiCol].toString().trim() : '0';
+              if (rsiVal !== '1' && rsiVal !== '1.0' && rsiVal.toUpperCase() !== 'TRUE') {
+                return;
+              }
+            }
+
+            const mcs = row[mcsColIdx] ? row[mcsColIdx].toString().trim() : '';
+            const storeName = row[storeColIdx] ? row[storeColIdx].toString().trim() : '';
             const area = row[areaColIdx] ? row[areaColIdx].toString().trim() : 'N/A';
             const dealer = row[dealerColIdx] ? row[dealerColIdx].toString().trim() : 'N/A';
             const ft = row[ftColIdx] ? row[ftColIdx].toString().trim() : 'NO FT TAGGING';
@@ -526,7 +584,7 @@
 
             if (!mcs && !storeName) return;
 
-            let rsiVal = 0, targetFF = 0, targetFSM = 0;
+            let targetFF = 0, targetFSM = 0;
             const freqsFF = {}, freqsFSM = {};
             let curIsFSM = false;
 
@@ -535,9 +593,8 @@
               const val = parseFloat(rawVal) || 0;
               const mName = c.metric.toUpperCase();
 
-              if (mName.includes('RSI')) rsiVal = val;
-              else if (mName.includes('TARGET HC (FSM)')) { curIsFSM = true; targetFSM = val; }
-              else if (mName.includes('TARGET HC (FF)')) targetFF = val;
+              if (mName.includes('TARGET HC (FSM)') || (mName.includes('FSM') && mName.includes('TARGET'))) { curIsFSM = true; targetFSM = val; }
+              else if (mName.includes('TARGET HC (FF)') || (mName.includes('FF') && mName.includes('TARGET'))) targetFF = val;
               else {
                 const match = mName.match(/FREQ\s*(\d+)/);
                 if (match) {
@@ -548,7 +605,7 @@
               }
             });
 
-            if (rsiVal !== 1) return;
+            if (targetFF === 0 && maxFreqFF === 0) targetFF = 1;
 
             const storeIdentifier = mcs || storeName;
             if (storeIdentifier) uniqueStoresSet.add(storeIdentifier);
@@ -564,11 +621,11 @@
 
             let sumFreqFF = 0;
             for (let f = 1; f <= maxFreqFF; f++) sumFreqFF += (freqsFF[f] || 0);
-            const storeActualFF = maxFreqFF > 0 ? (sumFreqFF / maxFreqFF) : 0;
+            const storeActualFF = maxFreqFF > 0 ? (sumFreqFF / maxFreqFF) : (targetFF > 0 ? targetFF : 0);
 
             let sumFreqFSM = 0;
             for (let f = 1; f <= maxFreqFSM; f++) sumFreqFSM += (freqsFSM[f] || 0);
-            const storeActualFSM = maxFreqFSM > 0 ? (sumFreqFSM / maxFreqFSM) : 0;
+            const storeActualFSM = maxFreqFSM > 0 ? (sumFreqFSM / maxFreqFSM) : (targetFSM > 0 ? targetFSM : 0);
 
             const rowTarget = targetFF + targetFSM;
             const rowActual = storeActualFF + storeActualFSM;
@@ -576,7 +633,6 @@
             totalTargetOverall += rowTarget;
             totalActualOverall += rowActual;
 
-            // Updated Max Target/Actual Logic per store across models
             if (!storeMaxMap[storeIdentifier]) {
               storeMaxMap[storeIdentifier] = { targetFF: targetFF, actualFF: storeActualFF, targetFSM: targetFSM, actualFSM: storeActualFSM };
             } else {
@@ -642,11 +698,11 @@
 
             let sumFF = 0;
             for (let f = 1; f <= maxFreqFF; f++) sumFF += (r.freqsFF[f] || 0);
-            const actFF = maxFreqFF > 0 ? (sumFF / maxFreqFF) : 0;
+            const actFF = maxFreqFF > 0 ? (sumFF / maxFreqFF) : r.targetFF;
 
             let sumFSM = 0;
             for (let f = 1; f <= maxFreqFSM; f++) sumFSM += (r.freqsFSM[f] || 0);
-            const actFSM = maxFreqFSM > 0 ? (sumFSM / maxFreqFSM) : 0;
+            const actFSM = maxFreqFSM > 0 ? (sumFSM / maxFreqFSM) : r.targetFSM;
 
             const totalActual = Math.round(actFF + actFSM);
             const ach = totalTarget > 0 ? parseFloat(((totalActual / totalTarget) * 100).toFixed(1)) : 0;
@@ -655,32 +711,25 @@
             areaTargetData.push(totalTarget);
             areaActualData.push(totalActual);
 
-            let isAllFreqComplete = true;
-            let hasAnyProgress = false;
-
-            if (r.targetFF > 0) {
-              for (let f = 1; f <= maxFreqFF; f++) {
-                if ((r.freqsFF[f] || 0) < r.targetFF) isAllFreqComplete = false;
-                if ((r.freqsFF[f] || 0) > 0) hasAnyProgress = true;
-              }
-            }
-            if (r.targetFSM > 0) {
-              for (let f = 1; f <= maxFreqFSM; f++) {
-                if ((r.freqsFSM[f] || 0) < r.targetFSM) isAllFreqComplete = false;
-                if ((r.freqsFSM[f] || 0) > 0) hasAnyProgress = true;
-              }
-            }
-
-            if (isAllFreqComplete && totalTarget > 0) doneCount++;
-            else if (hasAnyProgress || totalActual > 0) progressCount++;
+            if (ach >= 100 && totalTarget > 0) doneCount++;
+            else if (totalActual > 0) progressCount++;
             else pendingCount++;
+          });
+
+          // Hanapin ang End Dates para sa Freq 1 at Freq 2 kung meron sa model metrics
+          let ffFreqEndDate = '';
+          let fsmFreqEndDate = '';
+          cols.forEach(c => {
+            const mName = c.metric.toUpperCase();
+            if (mName.includes('FREQ 1') && !mName.includes('FSM')) ffFreqEndDate = c.endDate;
+            if (mName.includes('FREQ 1') && mName.includes('FSM')) fsmFreqEndDate = c.endDate;
           });
 
           const buildDetailedSummaryRows = (aggObj, extraMap = null, extraType = '') => {
             const keys = Object.keys(aggObj);
-            const totalColsSpan = (extraType ? 2 : 1) + (maxFreqFF > 0 ? maxFreqFF + 1 : 0) + (maxFreqFSM > 0 ? maxFreqFSM + 1 : 0) + 4;
+            const totalColsSpan = (extraType ? 2 : 1) + (maxFreqFF > 0 ? maxFreqFF + 1 : 0) + (maxFreqFSM > 0 ? maxFreqFSM + 1 : 0) + 5;
 
-            if (keys.length === 0) return `<tr><td colspan="${totalColsSpan}" style="text-align:center; color:#888;">No Target Stores (RSI = 1) Found</td></tr>`;
+            if (keys.length === 0) return `<tr><td colspan="${totalColsSpan}" style="text-align:center; color:#888;">No Data Found</td></tr>`;
 
             return keys.map(key => {
               const r = aggObj[key];
@@ -688,42 +737,33 @@
 
               let sumFF = 0;
               for (let f = 1; f <= maxFreqFF; f++) sumFF += (r.freqsFF[f] || 0);
-              const actFF = maxFreqFF > 0 ? (sumFF / maxFreqFF) : 0;
+              const actFF = maxFreqFF > 0 ? (sumFF / maxFreqFF) : r.targetFF;
 
               let sumFSM = 0;
               for (let f = 1; f <= maxFreqFSM; f++) sumFSM += (r.freqsFSM[f] || 0);
-              const actFSM = maxFreqFSM > 0 ? (sumFSM / maxFreqFSM) : 0;
+              const actFSM = maxFreqFSM > 0 ? (sumFSM / maxFreqFSM) : r.targetFSM;
 
               const totalActual = Math.round(actFF + actFSM);
               const achVal = totalTarget > 0 ? ((totalActual / totalTarget) * 100) : 0;
               const ach = achVal.toFixed(1);
               const targetColorClass = getTargetColorClass(achVal);
 
-              let isAllFreqComplete = true;
-              let hasAnyProgress = false;
-
-              if (r.targetFF > 0) {
-                for (let f = 1; f <= maxFreqFF; f++) {
-                  if ((r.freqsFF[f] || 0) < r.targetFF) isAllFreqComplete = false;
-                  if ((r.freqsFF[f] || 0) > 0) hasAnyProgress = true;
-                }
-              }
-              if (r.targetFSM > 0) {
-                for (let f = 1; f <= maxFreqFSM; f++) {
-                  if ((r.freqsFSM[f] || 0) < r.targetFSM) isAllFreqComplete = false;
-                  if ((r.freqsFSM[f] || 0) > 0) hasAnyProgress = true;
-                }
-              }
-
               let badge = 'bg-pending', status = 'NOT STARTED';
-              if (isAllFreqComplete && totalTarget > 0) { badge = 'bg-done'; status = 'DONE'; }
-              else if (hasAnyProgress || totalActual > 0) { badge = 'bg-progress'; status = 'IN PROGRESS'; }
+              if (achVal >= 100 && totalTarget > 0) { badge = 'bg-done'; status = 'DONE'; }
+              else if (totalActual > 0) { badge = 'bg-progress'; status = 'IN PROGRESS'; }
 
               let ffFreqTds = '';
-              for (let f = 1; f <= maxFreqFF; f++) ffFreqTds += `<td>${r.freqsFF[f] || 0}</td>`;
+              for (let f = 1; f <= maxFreqFF; f++) {
+                const fVal = r.freqsFF[f] || 0;
+                // Kung gusto mong ilagay ang per-freq status o bilang:
+                ffFreqTds += `<td>${fVal}</td>`;
+              }
 
               let fsmFreqTds = '';
-              for (let f = 1; f <= maxFreqFSM; f++) fsmFreqTds += `<td>${r.freqsFSM[f] || 0}</td>`;
+              for (let f = 1; f <= maxFreqFSM; f++) {
+                const fVal = r.freqsFSM[f] || 0;
+                fsmFreqTds += `<td>${fVal}</td>`;
+              }
 
               let extraTd = '', dataAttr = '';
               if (extraType && extraMap) {
@@ -732,6 +772,9 @@
                 if (extraType === 'Region') dataAttr = `data-region="${extraVal}"`;
                 else if (extraType === 'AP1') dataAttr = `data-ap1="${extraVal}"`;
               }
+
+              // Timeline Status para sa kabuuang row batay sa FF Freq 1 End Date o katulad
+              const timelineRes = computeTimelineStatus(ffFreqEndDate || cols[0]?.endDate, achVal);
 
               return `
                 <tr ${dataAttr}>
@@ -743,6 +786,7 @@
                   <td><b>${totalActual}</b></td>
                   <td><b>${ach}%</b></td>
                   <td><span class="badge ${badge}">${status}</span></td>
+                  <td><span class="badge ${timelineRes.badge}">${timelineRes.text}</span></td>
                 </tr>
               `;
             }).join('');
@@ -762,12 +806,12 @@
                   ${extraColName ? `<th rowspan="2">${extraColName}</th>` : ''}
                   ${maxFreqFF > 0 ? `<th colspan="${maxFreqFF + 1}" class="th-ff" style="text-align:center;">FIELD FORCE (FF)</th>` : ''}
                   ${maxFreqFSM > 0 ? `<th colspan="${maxFreqFSM + 1}" class="th-fsm" style="text-align:center;">FSM</th>` : ''}
-                  <th colspan="4" class="th-total" style="text-align:center;">TOTAL SUMMARY</th>
+                  <th colspan="5" class="th-total" style="text-align:center;">TOTAL SUMMARY</th>
                 </tr>
                 <tr>
                   ${maxFreqFF > 0 ? `<th>Target</th>${ffHeaders}` : ''}
                   ${maxFreqFSM > 0 ? `<th>Target</th>${fsmHeaders}` : ''}
-                  <th>Target HC</th><th>Actual HC</th><th>ACH %</th><th>Status</th>
+                  <th>Target HC</th><th>Actual HC</th><th>ACH %</th><th>Status</th><th>Timeline</th>
                 </tr>
               </thead>
             `;
@@ -777,36 +821,18 @@
             const keys = Object.keys(aggObj);
             if (keys.length === 0) return { name: 'NO DATA', sub: 'No records available' };
 
-            const hit100List = [], allList = [];
+            const allList = [];
             for (const key of keys) {
               const r = aggObj[key];
               const totalTarget = r.targetFF + r.targetFSM;
-
-              let sumFF = 0;
-              for (let f = 1; f <= maxFreqFF; f++) sumFF += (r.freqsFF[f] || 0);
-              const actFF = maxFreqFF > 0 ? (sumFF / maxFreqFF) : 0;
-
-              let sumFSM = 0;
-              for (let f = 1; f <= maxFreqFSM; f++) sumFSM += (r.freqsFSM[f] || 0);
-              const actFSM = maxFreqFSM > 0 ? (sumFSM / maxFreqFSM) : 0;
-
-              const totalActual = Math.round(actFF + actFSM);
+              const totalActual = Math.round(r.targetFF + r.targetFSM);
               const ach = totalTarget > 0 ? (totalActual / totalTarget) * 100 : 0;
-
-              const item = { key, totalActual, ach };
-              allList.push(item);
-              if (ach >= 100) hit100List.push(item);
-            }
-
-            if (hit100List.length > 0) {
-              hit100List.sort((a, b) => b.totalActual - a.totalActual || b.ach - a.ach);
-              const winner = hit100List[0];
-              return { name: winner.key, sub: `${winner.totalActual} HC (${winner.ach.toFixed(1)}% ACH - 100% Hit)` };
+              allList.push({ key, totalActual, ach });
             }
 
             allList.sort((a, b) => b.totalActual - a.totalActual || b.ach - a.ach);
-            const fallbackWinner = allList[0];
-            return { name: fallbackWinner.key, sub: `${fallbackWinner.totalActual} HC (${fallbackWinner.ach.toFixed(1)}% ACH)` };
+            const winner = allList[0];
+            return { name: winner.key, sub: `${winner.totalActual} HC (${winner.ach.toFixed(1)}% ACH)` };
           };
 
           const leadingFT = getLeadingGroup(ftAgg);
@@ -930,7 +956,6 @@
       const activeModelsCount = overallProgressModels + overallPendingModels;
       const totalModelsCount = models.length;
 
-      // CALCULATE GRAND TOTAL TARGET & ACTUAL USING MAX STORE LOGIC
       let grandTotalTarget = 0;
       let grandTotalActual = 0;
 
@@ -986,6 +1011,7 @@
         summaryCardsContainer.innerHTML = globalSummaryStore["OVERALL SUMMARY"];
       }
 
+      // WALANG TIMELINE SA OVERALL SUMMARY (Ayon sa iyong utos)
       const buildSimpleSummaryRows = (ovObj, extraMap = null, extraType = '') => {
         const keys = Object.keys(ovObj);
         if (keys.length === 0) return `<tr><td colspan="12" style="text-align:center; color:#888;">No Data Available</td></tr>`;
@@ -1213,7 +1239,6 @@
       const isDark = document.body.classList.contains('dark-mode');
       const textColor = isDark ? '#94a3b8' : '#64748b';
       const gridColor = isDark ? 'rgba(51, 65, 85, 0.4)' : 'rgba(226, 232, 240, 0.6)';
-
       const commonGridStyle = { color: gridColor, drawBorder: false };
 
       const ctxStatus = document.getElementById(`chart-status-${safeModelId}`);
