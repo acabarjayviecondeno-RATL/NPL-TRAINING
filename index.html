@@ -89,6 +89,23 @@
 
     @media print { body { display: none !important; } }
 
+    #security-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: var(--bg-dashboard);
+      z-index: 99999;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #dc2626;
+    }
+
     b, strong, h1, h2, h3, h4, th, .tab-btn, .value, .bold {
       font-family: var(--font-family) !important;
       font-weight: bold !important;
@@ -280,7 +297,9 @@
     #loader { font-size: 1.05em; color: var(--primary-blue); margin-bottom: 15px; }
   </style>
 </head>
-<body>
+<body oncontextmenu="return false;">
+
+  <div id="security-overlay">Screenshot & Saving Restricted for Security Purposes</div>
 
   <div class="sticky-top-wrapper">
     <div class="header">
@@ -305,6 +324,35 @@
   <div id="contentsContainer"></div>
 
   <script>
+    document.addEventListener('keydown', function(e) {
+      if (
+        e.keyCode === 44 ||
+        (e.ctrlKey && (e.keyCode === 83 || e.keyCode === 80 || e.keyCode === 85 || e.keyCode === 73)) ||
+        e.keyCode === 123
+      ) {
+        e.preventDefault();
+        showSecurityWarning("Action Restricted: Printing, Saving, or Capturing is disabled.");
+        return false;
+      }
+    });
+
+    window.addEventListener('blur', function() {
+      document.getElementById('security-overlay').style.display = 'flex';
+    });
+
+    window.addEventListener('focus', function() {
+      document.getElementById('security-overlay').style.display = 'none';
+    });
+
+    function showSecurityWarning(msg) {
+      const overlay = document.getElementById('security-overlay');
+      overlay.innerText = msg;
+      overlay.style.display = 'flex';
+      setTimeout(() => {
+        overlay.style.display = 'none';
+      }, 2000);
+    }
+
     function toggleNightMode() {
       document.body.classList.toggle('dark-mode');
       const isDark = document.body.classList.contains('dark-mode');
@@ -483,23 +531,27 @@
       return 'bg-target-red';
     }
 
-    // Timeline Status Logic:
-    // - Kung achVal >= 100 -> "Done"
-    // - Kung achVal < 100 at today <= eDate -> "On-Track"
-    // - Kung achVal < 100 at today > eDate -> "Off-Track"
-    function computeTimelineStatus(endDateStr, achVal) {
-      const today = new Date();
-      today.setHours(0,0,0,0);
-
-      const eDate = endDateStr ? new Date(endDateStr) : null;
-      if (eDate) eDate.setHours(0,0,0,0);
-
+    // Timeline Logic para sa Last Freq:
+    // - Done: ACH >= 100%
+    // - On-Track: StartDate <= Today <= EndDate at ACH < 100% (o bago pa magsimula)
+    // - Off-Track: Today > EndDate at ACH < 100%
+    function computeTimelineStatus(startDateStr, endDateStr, achVal) {
       if (achVal >= 100) {
         return { text: "Done", badge: "bg-done" };
       }
+
+      const today = new Date();
+      today.setHours(0,0,0,0);
+
+      const sDate = startDateStr ? new Date(startDateStr) : null;
+      const eDate = endDateStr ? new Date(endDateStr) : null;
+      if (sDate) sDate.setHours(0,0,0,0);
+      if (eDate) eDate.setHours(0,0,0,0);
+
       if (eDate && today > eDate) {
         return { text: "Off-Track", badge: "bg-offtrack" };
       }
+
       return { text: "On-Track", badge: "bg-ontrack" };
     }
 
@@ -560,6 +612,26 @@
               else { if (freqNum > maxFreqFF) maxFreqFF = freqNum; }
             }
           });
+
+          // Hanapin ang Last Freq Start at End Date para sa model na ito
+          let lastFreqStart = '';
+          let lastFreqEnd = '';
+          
+          const targetLastFF = maxFreqFF > 0 ? `FREQ ${maxFreqFF}` : '';
+          cols.forEach(c => {
+            const mName = c.metric.toUpperCase();
+            if ((mName.includes(targetLastFF) && !mName.includes('FSM')) || (!mName.includes('FSM') && c.endDate)) {
+              if (c.endDate) {
+                lastFreqStart = c.startDate;
+                lastFreqEnd = c.endDate;
+              }
+            }
+          });
+          // Fallback kung walang mahanap na frequency end date
+          if (!lastFreqEnd && cols.length > 0) {
+            lastFreqStart = cols[cols.length - 1].startDate;
+            lastFreqEnd = cols[cols.length - 1].endDate;
+          }
 
           const ftAgg = {}, areaAgg = {}, ap1Agg = {}, dealerAgg = {};
           const ftRegionMap = {}, dealerAp1Map = {};
@@ -716,15 +788,6 @@
             else pendingCount++;
           });
 
-          // Hanapin ang End Dates para sa Freq 1 at Freq 2 kung meron sa model metrics
-          let ffFreqEndDate = '';
-          let fsmFreqEndDate = '';
-          cols.forEach(c => {
-            const mName = c.metric.toUpperCase();
-            if (mName.includes('FREQ 1') && !mName.includes('FSM')) ffFreqEndDate = c.endDate;
-            if (mName.includes('FREQ 1') && mName.includes('FSM')) fsmFreqEndDate = c.endDate;
-          });
-
           const buildDetailedSummaryRows = (aggObj, extraMap = null, extraType = '') => {
             const keys = Object.keys(aggObj);
             const totalColsSpan = (extraType ? 2 : 1) + (maxFreqFF > 0 ? maxFreqFF + 1 : 0) + (maxFreqFSM > 0 ? maxFreqFSM + 1 : 0) + 5;
@@ -754,15 +817,12 @@
 
               let ffFreqTds = '';
               for (let f = 1; f <= maxFreqFF; f++) {
-                const fVal = r.freqsFF[f] || 0;
-                // Kung gusto mong ilagay ang per-freq status o bilang:
-                ffFreqTds += `<td>${fVal}</td>`;
+                ffFreqTds += `<td>${r.freqsFF[f] || 0}</td>`;
               }
 
               let fsmFreqTds = '';
               for (let f = 1; f <= maxFreqFSM; f++) {
-                const fVal = r.freqsFSM[f] || 0;
-                fsmFreqTds += `<td>${fVal}</td>`;
+                fsmFreqTds += `<td>${r.freqsFSM[f] || 0}</td>`;
               }
 
               let extraTd = '', dataAttr = '';
@@ -773,8 +833,8 @@
                 else if (extraType === 'AP1') dataAttr = `data-ap1="${extraVal}"`;
               }
 
-              // Timeline Status para sa kabuuang row batay sa FF Freq 1 End Date o katulad
-              const timelineRes = computeTimelineStatus(ffFreqEndDate || cols[0]?.endDate, achVal);
+              // Isang Timeline column gamit ang Last Freq Start at End Date at Overall ACH % ng row
+              const timelineRes = computeTimelineStatus(lastFreqStart, lastFreqEnd, achVal);
 
               return `
                 <tr ${dataAttr}>
@@ -1011,7 +1071,6 @@
         summaryCardsContainer.innerHTML = globalSummaryStore["OVERALL SUMMARY"];
       }
 
-      // WALANG TIMELINE SA OVERALL SUMMARY (Ayon sa iyong utos)
       const buildSimpleSummaryRows = (ovObj, extraMap = null, extraType = '') => {
         const keys = Object.keys(ovObj);
         if (keys.length === 0) return `<tr><td colspan="12" style="text-align:center; color:#888;">No Data Available</td></tr>`;
