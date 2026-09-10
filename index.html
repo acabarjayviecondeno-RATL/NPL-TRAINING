@@ -138,22 +138,6 @@
       flex-wrap: wrap;
     }
 
-    /* NON-CLICKABLE BADGE FOR MOBILE LAYOUT INDICATOR */
-    .badge-static {
-      padding: 8px 14px;
-      border: 1px solid var(--border-color);
-      background: var(--card-bg);
-      color: var(--text-muted);
-      border-radius: 12px;
-      font-size: 0.8em;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      cursor: default;
-      pointer-events: none; /* NON-CLICKABLE */
-      user-select: none;
-    }
-
     .btn-toggle {
       padding: 8px 14px;
       border: 1px solid var(--border-color);
@@ -289,12 +273,41 @@
       border: 1px solid var(--border-color);
       overflow-x: auto;
     }
-    .table-container h3 {
-      margin-top: 0;
+    
+    .table-header-flex {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       margin-bottom: 18px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .table-header-flex h3 {
+      margin: 0;
       font-size: 1.05em;
       color: var(--text-main);
     }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85em;
+    }
+
+    .filter-select {
+      padding: 6px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      background-color: var(--card-bg);
+      color: var(--text-main);
+      font-family: var(--font-family);
+      font-size: 0.9em;
+      cursor: pointer;
+      outline: none;
+    }
+
     table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
     th, td { padding: 12px 14px; border-bottom: 1px solid var(--border-color); text-align: left; white-space: nowrap; }
     th { background: var(--border-color); color: var(--text-main); font-weight: bold; border-radius: 8px; }
@@ -335,8 +348,6 @@
         <p>Visual Analytics & Interactive Performance Metrics</p>
       </div>
       <div class="header-controls">
-        <!-- NON-CLICKABLE MOBILE BADGE -->
-        <div class="badge-static">📱 Mobile-Optimized Layout</div>
         <!-- NIGHT MODE TOGGLE BUTTON -->
         <button class="btn-toggle" onclick="toggleNightMode()">🌙 Night Mode</button>
         <div class="live-status">
@@ -355,7 +366,7 @@
   <div id="contentsContainer"></div>
 
   <script>
-    // --- DISPLAY CONTROLS (NIGHT MODE ONLY) ---
+    // --- DISPLAY CONTROLS (NIGHT MODE) ---
     function toggleNightMode() {
       document.body.classList.toggle('dark-mode');
     }
@@ -481,6 +492,24 @@
       });
       document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.toggle('active', content.id === `tab-${model.replace(/[^a-zA-Z0-9]/g, '-')}`);
+      });
+    }
+
+    // FILTER FT TABLE BY REGION
+    function filterFtTable(safeModelId) {
+      const selectedRegion = document.getElementById(`filter-region-${safeModelId}`).value.toUpperCase();
+      const tbody = document.getElementById(`tbody-ft-${safeModelId}`);
+      const rows = tbody.querySelectorAll('tr');
+
+      rows.forEach(row => {
+        const regionTd = row.getAttribute('data-region');
+        if (!regionTd) return;
+        
+        if (selectedRegion === 'ALL' || regionTd.toUpperCase() === selectedRegion) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
       });
     }
 
@@ -719,12 +748,17 @@
             for (let f = 1; f <= maxFreqFSM; f++) fsmFreqTds += `<td>${r.freqsFSM[f] || 0}</td>`;
 
             let extraTd = '';
+            let dataAttr = '';
             if (extraType && extraMap) {
-              extraTd = `<td>${extraMap[key] || 'N/A'}</td>`;
+              const extraVal = extraMap[key] || 'N/A';
+              extraTd = `<td>${extraVal}</td>`;
+              if (extraType === 'Region') {
+                dataAttr = `data-region="${extraVal}"`;
+              }
             }
 
             return `
-              <tr>
+              <tr ${dataAttr}>
                 <td class="${targetColorClass}"><b>${key}</b></td>
                 ${extraTd}
                 ${maxFreqFF > 0 ? `<td style="background:var(--border-color);">${r.targetFF}</td>${ffFreqTds}` : ''}
@@ -831,6 +865,9 @@
           `;
         }
 
+        const uniqueRegions = Array.from(new Set(Object.values(ftRegionMap))).filter(r => r && r !== 'N/A').sort();
+        const regionOptions = ['ALL', ...uniqueRegions].map(r => `<option value="${r}">${r}</option>`).join('');
+
         const contentDiv = document.createElement('div');
         contentDiv.id = `tab-${safeModelId}`;
         contentDiv.className = `tab-content ${isActive ? 'active' : ''}`;
@@ -867,10 +904,18 @@
             </div>
 
             <div class="table-container">
-              <h3>👤 FT Name Training Summary</h3>
+              <div class="table-header-flex">
+                <h3>👤 FT Name Training Summary</h3>
+                <div class="filter-group">
+                  <label for="filter-region-${safeModelId}"><b>Filter Region:</b></label>
+                  <select id="filter-region-${safeModelId}" class="filter-select" onchange="filterFtTable('${safeModelId}')">
+                    ${regionOptions}
+                  </select>
+                </div>
+              </div>
               <table>
                 ${buildHeaderHTML('FT Name', 'Region')}
-                <tbody>${buildDetailedSummaryRows(ftAgg, ftRegionMap, 'Region')}</tbody>
+                <tbody id="tbody-ft-${safeModelId}">${buildDetailedSummaryRows(ftAgg, ftRegionMap, 'Region')}</tbody>
               </table>
             </div>
 
