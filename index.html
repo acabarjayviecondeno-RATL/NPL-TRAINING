@@ -216,7 +216,7 @@
 
     .cards-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 16px;
     }
     .card {
@@ -340,7 +340,7 @@
 </head>
 <body>
 
-  <!-- TOP CONTAINER (NON-STICKY ON MOBILE) -->
+  <!-- TOP CONTAINER -->
   <div class="sticky-top-wrapper">
     <div class="header">
       <div>
@@ -348,7 +348,6 @@
         <p>Visual Analytics & Interactive Performance Metrics</p>
       </div>
       <div class="header-controls">
-        <!-- NIGHT MODE TOGGLE BUTTON -->
         <button class="btn-toggle" onclick="toggleNightMode()">🌙 Night Mode</button>
         <div class="live-status">
           <span class="pulse-dot"></span>
@@ -366,12 +365,11 @@
   <div id="contentsContainer"></div>
 
   <script>
-    // --- DISPLAY CONTROLS (NIGHT MODE) ---
     function toggleNightMode() {
       document.body.classList.toggle('dark-mode');
     }
 
-    // --- SECURITY & PROTECTION SCRIPT ---
+    // Protection logic
     document.addEventListener('keydown', function (e) {
       if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
         e.preventDefault();
@@ -401,11 +399,12 @@
       }
     });
 
-    // --- DASHBOARD DATA ENGINE ---
+    // Dashboard Engine
     const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS0h-UPJQmlKl3Q1VWFklTWgPhNClo-2XcI7trEztjG_kQoTGFJnqE4RfY7POQKkrLPQArwtJUXY0aP/pub?output=csv";
 
-    let activeModelTab = null;
+    let activeModelTab = "OVERALL SUMMARY";
     const chartInstances = {};
+    let globalSummaryStore = {};
 
     Chart.defaults.font.family = "'Samsung Sharp Sans', 'Segoe UI', Arial, sans-serif";
 
@@ -478,8 +477,8 @@
       const validModels = Object.keys(modelsMap).filter(m => modelsMap[m] && modelsMap[m].length > 0);
       const dataRows = rows.slice(headerRowIdx + 1);
 
-      if (!activeModelTab || !validModels.includes(activeModelTab)) {
-        activeModelTab = validModels[0] || null;
+      if (!activeModelTab) {
+        activeModelTab = "OVERALL SUMMARY";
       }
 
       buildDashboard(validModels, modelsMap, dataRows, ftColIdx, dealerColIdx, areaColIdx, ap1ColIdx);
@@ -493,9 +492,12 @@
       document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.toggle('active', content.id === `tab-${model.replace(/[^a-zA-Z0-9]/g, '-')}`);
       });
+      
+      if (globalSummaryStore[model]) {
+        document.getElementById('summaryCardsContainer').innerHTML = globalSummaryStore[model];
+      }
     }
 
-    // FILTER FT TABLE BY REGION
     function filterFtTable(safeModelId) {
       const selectedRegion = document.getElementById(`filter-region-${safeModelId}`).value.toUpperCase();
       const tbody = document.getElementById(`tbody-ft-${safeModelId}`);
@@ -513,6 +515,30 @@
       });
     }
 
+    function filterDealerTable(safeModelId) {
+      const selectedAp1 = document.getElementById(`filter-ap1-${safeModelId}`).value.toUpperCase();
+      const tbody = document.getElementById(`tbody-dealer-${safeModelId}`);
+      const rows = tbody.querySelectorAll('tr');
+
+      rows.forEach(row => {
+        const ap1Td = row.getAttribute('data-ap1');
+        if (!ap1Td) return;
+        
+        if (selectedAp1 === 'ALL' || ap1Td.toUpperCase() === selectedAp1) {
+          row.style.display = '';
+        } else {
+          row.style.display = 'none';
+        }
+      });
+    }
+
+    function getTargetColorClass(ach) {
+      if (ach >= 100) return 'bg-target-blue';
+      if (ach >= 95) return 'bg-target-green';
+      if (ach >= 80) return 'bg-target-orange';
+      return 'bg-target-red';
+    }
+
     function buildDashboard(models, modelsMap, dataRows, ftColIdx, dealerColIdx, areaColIdx, ap1ColIdx) {
       const tabsContainer = document.getElementById('tabsContainer');
       const summaryCardsContainer = document.getElementById('summaryCardsContainer');
@@ -527,180 +553,185 @@
         return;
       }
 
-      models.forEach((model) => {
-        const isActive = (model === activeModelTab);
-        const safeModelId = model.replace(/[^a-zA-Z0-9]/g, '-');
+      globalSummaryStore = {};
+
+      const overallFtAgg = {}, overallAreaAgg = {}, overallDealerAgg = {};
+      const overallFtRegionMap = {}, overallDealerAp1Map = {};
+      const overallRsiRegions = new Set();
+      const overallRsiAp1s = new Set();
+      
+      // Distinct Active Stores (RSI = 1 across any model) and Unique FTs
+      const uniqueStoresSet = new Set();
+      const uniqueFtSet = new Set();
+
+      let grandTotalTarget = 0, grandTotalActual = 0;
+
+      const modelAchData = [];
+      const modelTargetData = [];
+      const modelActualData = [];
+      let overallDoneModels = 0, overallProgressModels = 0, overallPendingModels = 0;
+
+      const allTabs = ["OVERALL SUMMARY", ...models];
+
+      allTabs.forEach((tabName) => {
+        const isActive = (tabName === activeModelTab);
+        const safeModelId = tabName.replace(/[^a-zA-Z0-9]/g, '-');
 
         const btn = document.createElement('button');
         btn.className = `tab-btn ${isActive ? 'active' : ''}`;
-        btn.innerText = model;
-        btn.onclick = () => switchTab(model);
+        btn.innerText = tabName;
+        btn.onclick = () => switchTab(tabName);
         tabsContainer.appendChild(btn);
 
-        const cols = modelsMap[model] || [];
+        if (tabName !== "OVERALL SUMMARY") {
+          const model = tabName;
+          const cols = modelsMap[model] || [];
 
-        let maxFreqFF = 0;
-        let maxFreqFSM = 0;
-        let isFSMSection = false;
-
-        cols.forEach(c => {
-          const mName = c.metric.toUpperCase();
-          if (mName.includes('TARGET HC (FSM)')) isFSMSection = true;
-
-          const match = mName.match(/FREQ\s*(\d+)/);
-          if (match) {
-            const freqNum = parseInt(match[1]);
-            if (isFSMSection) {
-              if (freqNum > maxFreqFSM) maxFreqFSM = freqNum;
-            } else {
-              if (freqNum > maxFreqFF) maxFreqFF = freqNum;
-            }
-          }
-        });
-
-        const ftAgg = {}, areaAgg = {}, dealerAgg = {};
-        const ftRegionMap = {}, dealerAp1Map = {};
-        let totalTargetOverall = 0, totalActualOverall = 0;
-
-        dataRows.forEach((row) => {
-          const mcs = row[0] ? row[0].toString().trim() : '';
-          const storeName = row[1] ? row[1].toString().trim() : '';
-          const area = row[areaColIdx] ? row[areaColIdx].toString().trim() : 'N/A';
-          const dealer = row[dealerColIdx] ? row[dealerColIdx].toString().trim() : 'N/A';
-          const ft = row[ftColIdx] ? row[ftColIdx].toString().trim() : 'NO FT TAGGING';
-          const ap1 = row[ap1ColIdx] ? row[ap1ColIdx].toString().trim() : 'N/A';
-
-          if (!mcs && !storeName) return;
-
-          ftRegionMap[ft] = area;
-          dealerAp1Map[dealer] = ap1;
-
-          let rsiVal = 0;
-          let targetFF = 0, targetFSM = 0;
-          const freqsFF = {};
-          const freqsFSM = {};
-          let curIsFSM = false;
+          let maxFreqFF = 0, maxFreqFSM = 0;
+          let isFSMSection = false;
 
           cols.forEach(c => {
-            const rawVal = row[c.index] ? row[c.index].toString().replace('%', '').trim() : '0';
-            const val = parseFloat(rawVal) || 0;
             const mName = c.metric.toUpperCase();
+            if (mName.includes('TARGET HC (FSM)')) isFSMSection = true;
 
-            if (mName.includes('RSI')) {
-              rsiVal = val;
-            } else if (mName.includes('TARGET HC (FSM)')) {
-              curIsFSM = true;
-              targetFSM = val;
-            } else if (mName.includes('TARGET HC (FF)')) {
-              targetFF = val;
-            } else {
-              const match = mName.match(/FREQ\s*(\d+)/);
-              if (match) {
-                const fNum = parseInt(match[1]);
-                if (curIsFSM) freqsFSM[fNum] = val;
-                else freqsFF[fNum] = val;
+            const match = mName.match(/FREQ\s*(\d+)/);
+            if (match) {
+              const freqNum = parseInt(match[1]);
+              if (isFSMSection) {
+                if (freqNum > maxFreqFSM) maxFreqFSM = freqNum;
+              } else {
+                if (freqNum > maxFreqFF) maxFreqFF = freqNum;
               }
             }
           });
 
-          if (rsiVal !== 1) return;
+          const ftAgg = {}, areaAgg = {}, dealerAgg = {};
+          const ftRegionMap = {}, dealerAp1Map = {};
+          const rsiRegionsSet = new Set();
+          const rsiAp1Set = new Set();
+          let totalTargetOverall = 0, totalActualOverall = 0;
 
-          let sumFreqFF = 0;
-          for (let f = 1; f <= maxFreqFF; f++) sumFreqFF += (freqsFF[f] || 0);
-          const storeActualFF = maxFreqFF > 0 ? (sumFreqFF / maxFreqFF) : 0;
+          dataRows.forEach((row) => {
+            const mcs = row[0] ? row[0].toString().trim() : '';
+            const storeName = row[1] ? row[1].toString().trim() : '';
+            const area = row[areaColIdx] ? row[areaColIdx].toString().trim() : 'N/A';
+            const dealer = row[dealerColIdx] ? row[dealerColIdx].toString().trim() : 'N/A';
+            const ft = row[ftColIdx] ? row[ftColIdx].toString().trim() : 'NO FT TAGGING';
+            const ap1 = row[ap1ColIdx] ? row[ap1ColIdx].toString().trim() : 'N/A';
 
-          let sumFreqFSM = 0;
-          for (let f = 1; f <= maxFreqFSM; f++) sumFreqFSM += (freqsFSM[f] || 0);
-          const storeActualFSM = maxFreqFSM > 0 ? (sumFreqFSM / maxFreqFSM) : 0;
+            if (!mcs && !storeName) return;
 
-          totalTargetOverall += (targetFF + targetFSM);
-          totalActualOverall += (storeActualFF + storeActualFSM);
+            let rsiVal = 0, targetFF = 0, targetFSM = 0;
+            const freqsFF = {}, freqsFSM = {};
+            let curIsFSM = false;
 
-          const initAggRow = () => {
-            const obj = { targetFF: 0, targetFSM: 0, freqsFF: {}, freqsFSM: {} };
-            for (let f = 1; f <= maxFreqFF; f++) obj.freqsFF[f] = 0;
-            for (let f = 1; f <= maxFreqFSM; f++) obj.freqsFSM[f] = 0;
-            return obj;
-          };
+            cols.forEach(c => {
+              const rawVal = row[c.index] ? row[c.index].toString().replace('%', '').trim() : '0';
+              const val = parseFloat(rawVal) || 0;
+              const mName = c.metric.toUpperCase();
 
-          const addDataToAgg = (aggObj, key) => {
-            if (!aggObj[key]) aggObj[key] = initAggRow();
-            aggObj[key].targetFF += targetFF;
-            aggObj[key].targetFSM += targetFSM;
-            for (let f = 1; f <= maxFreqFF; f++) aggObj[key].freqsFF[f] += (freqsFF[f] || 0);
-            for (let f = 1; f <= maxFreqFSM; f++) aggObj[key].freqsFSM[f] += (freqsFSM[f] || 0);
-          };
+              if (mName.includes('RSI')) {
+                rsiVal = val;
+              } else if (mName.includes('TARGET HC (FSM)')) {
+                curIsFSM = true;
+                targetFSM = val;
+              } else if (mName.includes('TARGET HC (FF)')) {
+                targetFF = val;
+              } else {
+                const match = mName.match(/FREQ\s*(\d+)/);
+                if (match) {
+                  const fNum = parseInt(match[1]);
+                  if (curIsFSM) freqsFSM[fNum] = val;
+                  else freqsFF[fNum] = val;
+                }
+              }
+            });
 
-          addDataToAgg(ftAgg, ft);
-          addDataToAgg(areaAgg, area);
-          addDataToAgg(dealerAgg, dealer);
-        });
+            // Filter out non-RSI stores for this model
+            if (rsiVal !== 1) return;
 
-        totalActualOverall = Math.round(totalActualOverall);
+            // Record Unique Store Key (MCS CODE or Store Name) and FT Name
+            const storeIdentifier = mcs || storeName;
+            if (storeIdentifier) uniqueStoresSet.add(storeIdentifier);
+            if (ft && ft !== 'NO FT TAGGING') uniqueFtSet.add(ft);
 
-        const areaLabels = Object.keys(areaAgg);
-        const areaAchData = [];
-        const areaTargetData = [];
-        const areaActualData = [];
-        let doneCount = 0, progressCount = 0, pendingCount = 0;
-
-        areaLabels.forEach(key => {
-          const r = areaAgg[key];
-          const totalTarget = r.targetFF + r.targetFSM;
-
-          let sumFF = 0;
-          for (let f = 1; f <= maxFreqFF; f++) sumFF += (r.freqsFF[f] || 0);
-          const actFF = maxFreqFF > 0 ? (sumFF / maxFreqFF) : 0;
-
-          let sumFSM = 0;
-          for (let f = 1; f <= maxFreqFSM; f++) sumFSM += (r.freqsFSM[f] || 0);
-          const actFSM = maxFreqFSM > 0 ? (sumFSM / maxFreqFSM) : 0;
-
-          const totalActual = Math.round(actFF + actFSM);
-          const ach = totalTarget > 0 ? parseFloat(((totalActual / totalTarget) * 100).toFixed(1)) : 0;
-
-          areaAchData.push(ach);
-          areaTargetData.push(totalTarget);
-          areaActualData.push(totalActual);
-
-          let isAllFreqComplete = true;
-          let hasAnyProgress = false;
-
-          if (r.targetFF > 0) {
-            for (let f = 1; f <= maxFreqFF; f++) {
-              if ((r.freqsFF[f] || 0) < r.targetFF) isAllFreqComplete = false;
-              if ((r.freqsFF[f] || 0) > 0) hasAnyProgress = true;
+            if (area && area !== 'N/A') {
+              rsiRegionsSet.add(area);
+              overallRsiRegions.add(area);
             }
-          }
-          if (r.targetFSM > 0) {
-            for (let f = 1; f <= maxFreqFSM; f++) {
-              if ((r.freqsFSM[f] || 0) < r.targetFSM) isAllFreqComplete = false;
-              if ((r.freqsFSM[f] || 0) > 0) hasAnyProgress = true;
+            if (ap1 && ap1 !== 'N/A') {
+              rsiAp1Set.add(ap1);
+              overallRsiAp1s.add(ap1);
             }
-          }
 
-          if (isAllFreqComplete && totalTarget > 0) doneCount++;
-          else if (hasAnyProgress || totalActual > 0) progressCount++;
-          else pendingCount++;
-        });
+            ftRegionMap[ft] = area;
+            dealerAp1Map[dealer] = ap1;
+            overallFtRegionMap[ft] = area;
+            overallDealerAp1Map[dealer] = ap1;
 
-        const getTargetColorClass = (ach) => {
-          if (ach >= 100) return 'bg-target-blue';
-          if (ach >= 95) return 'bg-target-green';
-          if (ach >= 80) return 'bg-target-orange';
-          return 'bg-target-red';
-        };
+            let sumFreqFF = 0;
+            for (let f = 1; f <= maxFreqFF; f++) sumFreqFF += (freqsFF[f] || 0);
+            const storeActualFF = maxFreqFF > 0 ? (sumFreqFF / maxFreqFF) : 0;
 
-        const buildDetailedSummaryRows = (aggObj, extraMap = null, extraType = '') => {
-          const keys = Object.keys(aggObj);
-          const totalColsSpan = (extraType ? 2 : 1) + (maxFreqFF > 0 ? maxFreqFF + 1 : 0) + (maxFreqFSM > 0 ? maxFreqFSM + 1 : 0) + 4;
+            let sumFreqFSM = 0;
+            for (let f = 1; f <= maxFreqFSM; f++) sumFreqFSM += (freqsFSM[f] || 0);
+            const storeActualFSM = maxFreqFSM > 0 ? (sumFreqFSM / maxFreqFSM) : 0;
 
-          if (keys.length === 0) {
-            return `<tr><td colspan="${totalColsSpan}" style="text-align:center; color:#888;">No Target Stores (RSI = 1) Found</td></tr>`;
-          }
+            const rowTarget = targetFF + targetFSM;
+            const rowActual = storeActualFF + storeActualFSM;
 
-          return keys.map(key => {
-            const r = aggObj[key];
+            totalTargetOverall += rowTarget;
+            totalActualOverall += rowActual;
+            grandTotalTarget += rowTarget;
+            grandTotalActual += rowActual;
+
+            const initAggRow = () => {
+              const obj = { targetFF: 0, targetFSM: 0, freqsFF: {}, freqsFSM: {} };
+              for (let f = 1; f <= maxFreqFF; f++) obj.freqsFF[f] = 0;
+              for (let f = 1; f <= maxFreqFSM; f++) obj.freqsFSM[f] = 0;
+              return obj;
+            };
+
+            const addDataToAgg = (aggObj, key) => {
+              if (!aggObj[key]) aggObj[key] = initAggRow();
+              aggObj[key].targetFF += targetFF;
+              aggObj[key].targetFSM += targetFSM;
+              for (let f = 1; f <= maxFreqFF; f++) aggObj[key].freqsFF[f] += (freqsFF[f] || 0);
+              for (let f = 1; f <= maxFreqFSM; f++) aggObj[key].freqsFSM[f] += (freqsFSM[f] || 0);
+            };
+
+            addDataToAgg(ftAgg, ft);
+            addDataToAgg(areaAgg, area);
+            addDataToAgg(dealerAgg, dealer);
+
+            const addDataToOverall = (ovObj, key) => {
+              if (!ovObj[key]) ovObj[key] = { target: 0, actual: 0 };
+              ovObj[key].target += rowTarget;
+              ovObj[key].actual += rowActual;
+            };
+
+            addDataToOverall(overallFtAgg, ft);
+            addDataToOverall(overallAreaAgg, area);
+            addDataToOverall(overallDealerAgg, dealer);
+          });
+
+          totalActualOverall = Math.round(totalActualOverall);
+          const modelAchVal = totalTargetOverall > 0 ? parseFloat(((totalActualOverall / totalTargetOverall) * 100).toFixed(1)) : 0;
+
+          modelAchData.push(modelAchVal);
+          modelTargetData.push(totalTargetOverall);
+          modelActualData.push(totalActualOverall);
+
+          if (modelAchVal >= 100) overallDoneModels++;
+          else if (totalActualOverall > 0) overallProgressModels++;
+          else overallPendingModels++;
+
+          const areaLabels = Object.keys(areaAgg);
+          const areaAchData = [], areaTargetData = [], areaActualData = [];
+          let doneCount = 0, progressCount = 0, pendingCount = 0;
+
+          areaLabels.forEach(key => {
+            const r = areaAgg[key];
             const totalTarget = r.targetFF + r.targetFSM;
 
             let sumFF = 0;
@@ -712,9 +743,11 @@
             const actFSM = maxFreqFSM > 0 ? (sumFSM / maxFreqFSM) : 0;
 
             const totalActual = Math.round(actFF + actFSM);
-            const achVal = totalTarget > 0 ? ((totalActual / totalTarget) * 100) : 0;
-            const ach = achVal.toFixed(1);
-            const targetColorClass = getTargetColorClass(achVal);
+            const ach = totalTarget > 0 ? parseFloat(((totalActual / totalTarget) * 100).toFixed(1)) : 0;
+
+            areaAchData.push(ach);
+            areaTargetData.push(totalTarget);
+            areaActualData.push(totalActual);
 
             let isAllFreqComplete = true;
             let hasAnyProgress = false;
@@ -732,116 +765,157 @@
               }
             }
 
-            let badge = 'bg-pending', status = 'NOT STARTED';
-            if (isAllFreqComplete && totalTarget > 0) {
-              badge = 'bg-done';
-              status = 'DONE';
-            } else if (hasAnyProgress || totalActual > 0) {
-              badge = 'bg-progress';
-              status = 'IN PROGRESS';
+            if (isAllFreqComplete && totalTarget > 0) doneCount++;
+            else if (hasAnyProgress || totalActual > 0) progressCount++;
+            else pendingCount++;
+          });
+
+          const buildDetailedSummaryRows = (aggObj, extraMap = null, extraType = '') => {
+            const keys = Object.keys(aggObj);
+            const totalColsSpan = (extraType ? 2 : 1) + (maxFreqFF > 0 ? maxFreqFF + 1 : 0) + (maxFreqFSM > 0 ? maxFreqFSM + 1 : 0) + 4;
+
+            if (keys.length === 0) {
+              return `<tr><td colspan="${totalColsSpan}" style="text-align:center; color:#888;">No Target Stores (RSI = 1) Found</td></tr>`;
             }
 
-            let ffFreqTds = '';
-            for (let f = 1; f <= maxFreqFF; f++) ffFreqTds += `<td>${r.freqsFF[f] || 0}</td>`;
+            return keys.map(key => {
+              const r = aggObj[key];
+              const totalTarget = r.targetFF + r.targetFSM;
 
-            let fsmFreqTds = '';
-            for (let f = 1; f <= maxFreqFSM; f++) fsmFreqTds += `<td>${r.freqsFSM[f] || 0}</td>`;
+              let sumFF = 0;
+              for (let f = 1; f <= maxFreqFF; f++) sumFF += (r.freqsFF[f] || 0);
+              const actFF = maxFreqFF > 0 ? (sumFF / maxFreqFF) : 0;
 
-            let extraTd = '';
-            let dataAttr = '';
-            if (extraType && extraMap) {
-              const extraVal = extraMap[key] || 'N/A';
-              extraTd = `<td>${extraVal}</td>`;
-              if (extraType === 'Region') {
-                dataAttr = `data-region="${extraVal}"`;
+              let sumFSM = 0;
+              for (let f = 1; f <= maxFreqFSM; f++) sumFSM += (r.freqsFSM[f] || 0);
+              const actFSM = maxFreqFSM > 0 ? (sumFSM / maxFreqFSM) : 0;
+
+              const totalActual = Math.round(actFF + actFSM);
+              const achVal = totalTarget > 0 ? ((totalActual / totalTarget) * 100) : 0;
+              const ach = achVal.toFixed(1);
+              const targetColorClass = getTargetColorClass(achVal);
+
+              let isAllFreqComplete = true;
+              let hasAnyProgress = false;
+
+              if (r.targetFF > 0) {
+                for (let f = 1; f <= maxFreqFF; f++) {
+                  if ((r.freqsFF[f] || 0) < r.targetFF) isAllFreqComplete = false;
+                  if ((r.freqsFF[f] || 0) > 0) hasAnyProgress = true;
+                }
               }
-            }
+              if (r.targetFSM > 0) {
+                for (let f = 1; f <= maxFreqFSM; f++) {
+                  if ((r.freqsFSM[f] || 0) < r.targetFSM) isAllFreqComplete = false;
+                  if ((r.freqsFSM[f] || 0) > 0) hasAnyProgress = true;
+                }
+              }
+
+              let badge = 'bg-pending', status = 'NOT STARTED';
+              if (isAllFreqComplete && totalTarget > 0) {
+                badge = 'bg-done';
+                status = 'DONE';
+              } else if (hasAnyProgress || totalActual > 0) {
+                badge = 'bg-progress';
+                status = 'IN PROGRESS';
+              }
+
+              let ffFreqTds = '';
+              for (let f = 1; f <= maxFreqFF; f++) ffFreqTds += `<td>${r.freqsFF[f] || 0}</td>`;
+
+              let fsmFreqTds = '';
+              for (let f = 1; f <= maxFreqFSM; f++) fsmFreqTds += `<td>${r.freqsFSM[f] || 0}</td>`;
+
+              let extraTd = '', dataAttr = '';
+              if (extraType && extraMap) {
+                const extraVal = extraMap[key] || 'N/A';
+                extraTd = `<td>${extraVal}</td>`;
+                if (extraType === 'Region') dataAttr = `data-region="${extraVal}"`;
+                else if (extraType === 'AP1') dataAttr = `data-ap1="${extraVal}"`;
+              }
+
+              return `
+                <tr ${dataAttr}>
+                  <td class="${targetColorClass}"><b>${key}</b></td>
+                  ${extraTd}
+                  ${maxFreqFF > 0 ? `<td style="background:var(--border-color);">${r.targetFF}</td>${ffFreqTds}` : ''}
+                  ${maxFreqFSM > 0 ? `<td style="background:var(--border-color);">${r.targetFSM}</td>${fsmFreqTds}` : ''}
+                  <td><b>${totalTarget}</b></td>
+                  <td><b>${totalActual}</b></td>
+                  <td><b>${ach}%</b></td>
+                  <td><span class="badge ${badge}">${status}</span></td>
+                </tr>
+              `;
+            }).join('');
+          };
+
+          const buildHeaderHTML = (groupTitle, extraColName = '') => {
+            let ffHeaders = '';
+            for (let f = 1; f <= maxFreqFF; f++) ffHeaders += `<th>Freq ${f}</th>`;
+
+            let fsmHeaders = '';
+            for (let f = 1; f <= maxFreqFSM; f++) fsmHeaders += `<th>Freq ${f}</th>`;
 
             return `
-              <tr ${dataAttr}>
-                <td class="${targetColorClass}"><b>${key}</b></td>
-                ${extraTd}
-                ${maxFreqFF > 0 ? `<td style="background:var(--border-color);">${r.targetFF}</td>${ffFreqTds}` : ''}
-                ${maxFreqFSM > 0 ? `<td style="background:var(--border-color);">${r.targetFSM}</td>${fsmFreqTds}` : ''}
-                <td><b>${totalTarget}</b></td>
-                <td><b>${totalActual}</b></td>
-                <td><b>${ach}%</b></td>
-                <td><span class="badge ${badge}">${status}</span></td>
-              </tr>
+              <thead>
+                <tr>
+                  <th rowspan="2">${groupTitle}</th>
+                  ${extraColName ? `<th rowspan="2">${extraColName}</th>` : ''}
+                  ${maxFreqFF > 0 ? `<th colspan="${maxFreqFF + 1}" style="text-align:center; background:#e0f2fe; color:#0369a1;">FIELD FORCE (FF)</th>` : ''}
+                  ${maxFreqFSM > 0 ? `<th colspan="${maxFreqFSM + 1}" style="text-align:center; background:#ffedd5; color:#c2410c;">FSM</th>` : ''}
+                  <th colspan="4" style="text-align:center; background:#dcfce7; color:#15803d;">TOTAL SUMMARY</th>
+                </tr>
+                <tr>
+                  ${maxFreqFF > 0 ? `<th>Target</th>${ffHeaders}` : ''}
+                  ${maxFreqFSM > 0 ? `<th>Target</th>${fsmHeaders}` : ''}
+                  <th>Target HC</th><th>Actual HC</th><th>ACH %</th><th>Status</th>
+                </tr>
+              </thead>
             `;
-          }).join('');
-        };
+          };
 
-        const buildHeaderHTML = (groupTitle, extraColName = '') => {
-          let ffHeaders = '';
-          for (let f = 1; f <= maxFreqFF; f++) ffHeaders += `<th>Freq ${f}</th>`;
+          const getLeadingGroup = (aggObj) => {
+            const keys = Object.keys(aggObj);
+            if (keys.length === 0) return { name: 'NO DATA', sub: 'No records available' };
 
-          let fsmHeaders = '';
-          for (let f = 1; f <= maxFreqFSM; f++) fsmHeaders += `<th>Freq ${f}</th>`;
+            const hit100List = [], allList = [];
+            for (const key of keys) {
+              const r = aggObj[key];
+              const totalTarget = r.targetFF + r.targetFSM;
 
-          return `
-            <thead>
-              <tr>
-                <th rowspan="2">${groupTitle}</th>
-                ${extraColName ? `<th rowspan="2">${extraColName}</th>` : ''}
-                ${maxFreqFF > 0 ? `<th colspan="${maxFreqFF + 1}" style="text-align:center; background:#e0f2fe; color:#0369a1;">FIELD FORCE (FF)</th>` : ''}
-                ${maxFreqFSM > 0 ? `<th colspan="${maxFreqFSM + 1}" style="text-align:center; background:#ffedd5; color:#c2410c;">FSM</th>` : ''}
-                <th colspan="4" style="text-align:center; background:#dcfce7; color:#15803d;">TOTAL SUMMARY</th>
-              </tr>
-              <tr>
-                ${maxFreqFF > 0 ? `<th>Target</th>${ffHeaders}` : ''}
-                ${maxFreqFSM > 0 ? `<th>Target</th>${fsmHeaders}` : ''}
-                <th>Target HC</th><th>Actual HC</th><th>ACH %</th><th>Status</th>
-              </tr>
-            </thead>
-          `;
-        };
+              let sumFF = 0;
+              for (let f = 1; f <= maxFreqFF; f++) sumFF += (r.freqsFF[f] || 0);
+              const actFF = maxFreqFF > 0 ? (sumFF / maxFreqFF) : 0;
 
-        const getLeadingGroup = (aggObj) => {
-          const keys = Object.keys(aggObj);
-          if (keys.length === 0) return { name: 'NO DATA', sub: 'No records available' };
+              let sumFSM = 0;
+              for (let f = 1; f <= maxFreqFSM; f++) sumFSM += (r.freqsFSM[f] || 0);
+              const actFSM = maxFreqFSM > 0 ? (sumFSM / maxFreqFSM) : 0;
 
-          const hit100List = [];
-          const allList = [];
+              const totalActual = Math.round(actFF + actFSM);
+              const ach = totalTarget > 0 ? (totalActual / totalTarget) * 100 : 0;
 
-          for (const key of keys) {
-            const r = aggObj[key];
-            const totalTarget = r.targetFF + r.targetFSM;
+              const item = { key, totalActual, ach };
+              allList.push(item);
+              if (ach >= 100) hit100List.push(item);
+            }
 
-            let sumFF = 0;
-            for (let f = 1; f <= maxFreqFF; f++) sumFF += (r.freqsFF[f] || 0);
-            const actFF = maxFreqFF > 0 ? (sumFF / maxFreqFF) : 0;
+            if (hit100List.length > 0) {
+              hit100List.sort((a, b) => b.totalActual - a.totalActual || b.ach - a.ach);
+              const winner = hit100List[0];
+              return { name: winner.key, sub: `${winner.totalActual} HC (${winner.ach.toFixed(1)}% ACH - 100% Hit)` };
+            }
 
-            let sumFSM = 0;
-            for (let f = 1; f <= maxFreqFSM; f++) sumFSM += (r.freqsFSM[f] || 0);
-            const actFSM = maxFreqFSM > 0 ? (sumFSM / maxFreqFSM) : 0;
+            allList.sort((a, b) => b.totalActual - a.totalActual || b.ach - a.ach);
+            const fallbackWinner = allList[0];
+            return { name: fallbackWinner.key, sub: `${fallbackWinner.totalActual} HC (${fallbackWinner.ach.toFixed(1)}% ACH)` };
+          };
 
-            const totalActual = Math.round(actFF + actFSM);
-            const ach = totalTarget > 0 ? (totalActual / totalTarget) * 100 : 0;
+          const leadingFT = getLeadingGroup(ftAgg);
+          const leadingDealer = getLeadingGroup(dealerAgg);
+          const leadingArea = getLeadingGroup(areaAgg);
+          const overallAch = totalTargetOverall > 0 ? ((totalActualOverall / totalTargetOverall) * 100).toFixed(1) : 0;
 
-            const item = { key, totalActual, ach };
-            allList.push(item);
-            if (ach >= 100) hit100List.push(item);
-          }
-
-          if (hit100List.length > 0) {
-            hit100List.sort((a, b) => b.totalActual - a.totalActual || b.ach - a.ach);
-            const winner = hit100List[0];
-            return { name: winner.key, sub: `${winner.totalActual} HC (${winner.ach.toFixed(1)}% ACH - 100% Hit)` };
-          }
-
-          allList.sort((a, b) => b.totalActual - a.totalActual || b.ach - a.ach);
-          const fallbackWinner = allList[0];
-          return { name: fallbackWinner.key, sub: `${fallbackWinner.totalActual} HC (${fallbackWinner.ach.toFixed(1)}% ACH)` };
-        };
-
-        const leadingFT = getLeadingGroup(ftAgg);
-        const leadingDealer = getLeadingGroup(dealerAgg);
-        const leadingArea = getLeadingGroup(areaAgg);
-        const overallAch = totalTargetOverall > 0 ? ((totalActualOverall / totalTargetOverall) * 100).toFixed(1) : 0;
-
-        if (isActive) {
-          summaryCardsContainer.innerHTML = `
+          globalSummaryStore[model] = `
             <div class="card">
               <h4>Leading FT</h4>
               <div class="value">${leadingFT.name}</div>
@@ -863,86 +937,288 @@
               <div class="sub-value">Total Target vs Actual</div>
             </div>
           `;
-        }
 
-        const uniqueRegions = Array.from(new Set(Object.values(ftRegionMap))).filter(r => r && r !== 'N/A').sort();
-        const regionOptions = ['ALL', ...uniqueRegions].map(r => `<option value="${r}">${r}</option>`).join('');
+          const uniqueRegions = Array.from(rsiRegionsSet).sort();
+          const regionOptions = ['ALL', ...uniqueRegions].map(r => `<option value="${r}">${r}</option>`).join('');
 
-        const contentDiv = document.createElement('div');
-        contentDiv.id = `tab-${safeModelId}`;
-        contentDiv.className = `tab-content ${isActive ? 'active' : ''}`;
+          const uniqueAp1 = Array.from(rsiAp1Set).sort();
+          const ap1Options = ['ALL', ...uniqueAp1].map(a => `<option value="${a}">${a}</option>`).join('');
 
-        contentDiv.innerHTML = `
-          <div class="charts-grid">
-            <div class="chart-card">
-              <h4>Area Status Overview</h4>
-              <div class="chart-container">
-                <canvas id="chart-status-${safeModelId}"></canvas>
-              </div>
-            </div>
-            <div class="chart-card">
-              <h4>ACH % per Area</h4>
-              <div class="chart-container">
-                <canvas id="chart-ach-${safeModelId}"></canvas>
-              </div>
-            </div>
-            <div class="chart-card">
-              <h4>Target vs Actual Headcount</h4>
-              <div class="chart-container">
-                <canvas id="chart-gap-${safeModelId}"></canvas>
-              </div>
-            </div>
-          </div>
+          const contentDiv = document.createElement('div');
+          contentDiv.id = `tab-${safeModelId}`;
+          contentDiv.className = `tab-content ${isActive ? 'active' : ''}`;
 
-          <div class="tables-layout">
-            <div class="table-container">
-              <h3>📍 Area Training Summary</h3>
-              <table>
-                ${buildHeaderHTML('Area')}
-                <tbody>${buildDetailedSummaryRows(areaAgg)}</tbody>
-              </table>
-            </div>
-
-            <div class="table-container">
-              <div class="table-header-flex">
-                <h3>👤 FT Name Training Summary</h3>
-                <div class="filter-group">
-                  <label for="filter-region-${safeModelId}"><b>Filter Region:</b></label>
-                  <select id="filter-region-${safeModelId}" class="filter-select" onchange="filterFtTable('${safeModelId}')">
-                    ${regionOptions}
-                  </select>
+          contentDiv.innerHTML = `
+            <div class="charts-grid">
+              <div class="chart-card">
+                <h4>Area Status Overview</h4>
+                <div class="chart-container">
+                  <canvas id="chart-status-${safeModelId}"></canvas>
                 </div>
               </div>
-              <table>
-                ${buildHeaderHTML('FT Name', 'Region')}
-                <tbody id="tbody-ft-${safeModelId}">${buildDetailedSummaryRows(ftAgg, ftRegionMap, 'Region')}</tbody>
-              </table>
+              <div class="chart-card">
+                <h4>ACH % per Area</h4>
+                <div class="chart-container">
+                  <canvas id="chart-ach-${safeModelId}"></canvas>
+                </div>
+              </div>
+              <div class="chart-card">
+                <h4>Target vs Actual Headcount</h4>
+                <div class="chart-container">
+                  <canvas id="chart-gap-${safeModelId}"></canvas>
+                </div>
+              </div>
             </div>
 
-            <div class="table-container">
-              <h3>🏪 Dealer Training Summary</h3>
-              <table>
-                ${buildHeaderHTML('Dealer', 'AP1')}
-                <tbody>${buildDetailedSummaryRows(dealerAgg, dealerAp1Map, 'AP1')}</tbody>
-              </table>
+            <div class="tables-layout">
+              <div class="table-container">
+                <h3>📍 Area Training Summary</h3>
+                <table>
+                  ${buildHeaderHTML('Area')}
+                  <tbody>${buildDetailedSummaryRows(areaAgg)}</tbody>
+                </table>
+              </div>
+
+              <div class="table-container">
+                <div class="table-header-flex">
+                  <h3>👤 FT Name Training Summary</h3>
+                  <div class="filter-group">
+                    <label for="filter-region-${safeModelId}"><b>Filter Region:</b></label>
+                    <select id="filter-region-${safeModelId}" class="filter-select" onchange="filterFtTable('${safeModelId}')">
+                      ${regionOptions}
+                    </select>
+                  </div>
+                </div>
+                <table>
+                  ${buildHeaderHTML('FT Name', 'Region')}
+                  <tbody id="tbody-ft-${safeModelId}">${buildDetailedSummaryRows(ftAgg, ftRegionMap, 'Region')}</tbody>
+                </table>
+              </div>
+
+              <div class="table-container">
+                <div class="table-header-flex">
+                  <h3>🏪 Dealer Training Summary</h3>
+                  <div class="filter-group">
+                    <label for="filter-ap1-${safeModelId}"><b>Filter AP1:</b></label>
+                    <select id="filter-ap1-${safeModelId}" class="filter-select" onchange="filterDealerTable('${safeModelId}')">
+                      ${ap1Options}
+                    </select>
+                  </div>
+                </div>
+                <table>
+                  ${buildHeaderHTML('Dealer', 'AP1')}
+                  <tbody id="tbody-dealer-${safeModelId}">${buildDetailedSummaryRows(dealerAgg, dealerAp1Map, 'AP1')}</tbody>
+                </table>
+              </div>
+            </div>
+          `;
+          contentsContainer.appendChild(contentDiv);
+
+          setTimeout(() => {
+            renderModelCharts(safeModelId, {
+              status: [doneCount, progressCount, pendingCount],
+              areas: areaLabels,
+              ach: areaAchData,
+              target: areaTargetData,
+              actual: areaActualData
+            });
+          }, 50);
+        }
+      });
+
+      // BUILD OVERALL SUMMARY TAB CONTENT
+      grandTotalActual = Math.round(grandTotalActual);
+      const grandAchVal = grandTotalTarget > 0 ? ((grandTotalActual / grandTotalTarget) * 100) : 0;
+      const grandAch = grandAchVal.toFixed(1);
+
+      // OVERALL SUMMARY CARDS WITH UNIQUE ACTIVE STORES HC
+      globalSummaryStore["OVERALL SUMMARY"] = `
+        <div class="card">
+          <h4>Active Models</h4>
+          <div class="value">${models.length}</div>
+          <div class="sub-value">Total NPL Lineup</div>
+        </div>
+        <div class="card">
+          <h4>Unique Stores HC</h4>
+          <div class="value">${uniqueStoresSet.size}</div>
+          <div class="sub-value">Distinct Active Stores</div>
+        </div>
+        <div class="card">
+          <h4>Unique FT HC</h4>
+          <div class="value">${uniqueFtSet.size}</div>
+          <div class="sub-value">Distinct Field Trainers</div>
+        </div>
+        <div class="card">
+          <h4>Total Target HC</h4>
+          <div class="value">${grandTotalTarget}</div>
+          <div class="sub-value">Combined Target Headcount</div>
+        </div>
+        <div class="card">
+          <h4>Total Actual HC</h4>
+          <div class="value">${grandTotalActual}</div>
+          <div class="sub-value">Combined Actual Headcount</div>
+        </div>
+        <div class="card">
+          <h4>Grand Overall ACH %</h4>
+          <div class="value">${grandAch}%</div>
+          <div class="sub-value">Overall Target vs Actual</div>
+        </div>
+      `;
+
+      if (activeModelTab === "OVERALL SUMMARY") {
+        summaryCardsContainer.innerHTML = globalSummaryStore["OVERALL SUMMARY"];
+      }
+
+      const buildSimpleSummaryRows = (ovObj, extraMap = null, extraType = '') => {
+        const keys = Object.keys(ovObj);
+        if (keys.length === 0) {
+          return `<tr><td colspan="6" style="text-align:center; color:#888;">No Data Available</td></tr>`;
+        }
+
+        return keys.map(key => {
+          const item = ovObj[key];
+          const target = item.target;
+          const actual = Math.round(item.actual);
+          const achVal = target > 0 ? ((actual / target) * 100) : 0;
+          const ach = achVal.toFixed(1);
+          const targetColorClass = getTargetColorClass(achVal);
+
+          let badge = 'bg-pending', status = 'NOT STARTED';
+          if (achVal >= 100) { badge = 'bg-done'; status = 'DONE'; }
+          else if (actual > 0) { badge = 'bg-progress'; status = 'IN PROGRESS'; }
+
+          let extraTd = '', dataAttr = '';
+          if (extraType && extraMap) {
+            const extraVal = extraMap[key] || 'N/A';
+            extraTd = `<td>${extraVal}</td>`;
+            if (extraType === 'Region') dataAttr = `data-region="${extraVal}"`;
+            else if (extraType === 'AP1') dataAttr = `data-ap1="${extraVal}"`;
+          }
+
+          return `
+            <tr ${dataAttr}>
+              <td class="${targetColorClass}"><b>${key}</b></td>
+              ${extraTd}
+              <td><b>${target}</b></td>
+              <td><b>${actual}</b></td>
+              <td><b>${ach}%</b></td>
+              <td><span class="badge ${badge}">${status}</span></td>
+            </tr>
+          `;
+        }).join('');
+      };
+
+      const overallRegionOptions = ['ALL', ...Array.from(overallRsiRegions).sort()].map(r => `<option value="${r}">${r}</option>`).join('');
+      const overallAp1Options = ['ALL', ...Array.from(overallRsiAp1s).sort()].map(a => `<option value="${a}">${a}</option>`).join('');
+
+      const overallDiv = document.createElement('div');
+      overallDiv.id = `tab-OVERALL-SUMMARY`;
+      overallDiv.className = `tab-content ${activeModelTab === "OVERALL SUMMARY" ? 'active' : ''}`;
+
+      overallDiv.innerHTML = `
+        <div class="charts-grid" style="margin-top: 15px;">
+          <div class="chart-card">
+            <h4>Models Status Overview</h4>
+            <div class="chart-container">
+              <canvas id="chart-status-OVERALL-SUMMARY"></canvas>
             </div>
           </div>
-        `;
-        contentsContainer.appendChild(contentDiv);
+          <div class="chart-card">
+            <h4>ACH % per Model</h4>
+            <div class="chart-container">
+              <canvas id="chart-ach-OVERALL-SUMMARY"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h4>Target vs Actual Headcount per Model</h4>
+            <div class="chart-container">
+              <canvas id="chart-gap-OVERALL-SUMMARY"></canvas>
+            </div>
+          </div>
+        </div>
 
-        setTimeout(() => {
-          renderModelCharts(safeModelId, {
-            status: [doneCount, progressCount, pendingCount],
-            areas: areaLabels,
-            ach: areaAchData,
-            target: areaTargetData,
-            actual: areaActualData
-          });
-        }, 50);
-      });
+        <div class="tables-layout" style="margin-top: 15px;">
+          <div class="table-container">
+            <h3>📍 Overall Area Summary (All Models)</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Area</th>
+                  <th>Target HC</th>
+                  <th>Actual HC</th>
+                  <th>ACH %</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>${buildSimpleSummaryRows(overallAreaAgg)}</tbody>
+            </table>
+          </div>
+
+          <div class="table-container">
+            <div class="table-header-flex">
+              <h3>👤 Overall FT Name Summary (All Models)</h3>
+              <div class="filter-group">
+                <label for="filter-region-OVERALL-SUMMARY"><b>Filter Region:</b></label>
+                <select id="filter-region-OVERALL-SUMMARY" class="filter-select" onchange="filterFtTable('OVERALL-SUMMARY')">
+                  ${overallRegionOptions}
+                </select>
+              </div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>FT Name</th>
+                  <th>Region</th>
+                  <th>Target HC</th>
+                  <th>Actual HC</th>
+                  <th>ACH %</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-ft-OVERALL-SUMMARY">${buildSimpleSummaryRows(overallFtAgg, overallFtRegionMap, 'Region')}</tbody>
+            </table>
+          </div>
+
+          <div class="table-container">
+            <div class="table-header-flex">
+              <h3>🏪 Overall Dealer Summary (All Models)</h3>
+              <div class="filter-group">
+                <label for="filter-ap1-OVERALL-SUMMARY"><b>Filter AP1:</b></label>
+                <select id="filter-ap1-OVERALL-SUMMARY" class="filter-select" onchange="filterDealerTable('OVERALL-SUMMARY')">
+                  ${overallAp1Options}
+                </select>
+              </div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Dealer</th>
+                  <th>AP1</th>
+                  <th>Target HC</th>
+                  <th>Actual HC</th>
+                  <th>ACH %</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-dealer-OVERALL-SUMMARY">${buildSimpleSummaryRows(overallDealerAgg, overallDealerAp1Map, 'AP1')}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+
+      contentsContainer.insertBefore(overallDiv, contentsContainer.firstChild);
+
+      setTimeout(() => {
+        renderModelCharts('OVERALL-SUMMARY', {
+          status: [overallDoneModels, overallProgressModels, overallPendingModels],
+          areas: models,
+          ach: modelAchData,
+          target: modelTargetData,
+          actual: modelActualData
+        });
+      }, 50);
     }
 
-    // --- CHART GRAPHICS ENGINE ---
     function renderModelCharts(safeModelId, data) {
       ['status', 'ach', 'gap'].forEach(type => {
         if (chartInstances[`${type}-${safeModelId}`]) {
@@ -960,7 +1236,7 @@
         chartInstances[`status-${safeModelId}`] = new Chart(ctxStatus, {
           type: 'doughnut',
           data: {
-            labels: ['DONE', 'IN PROGRESS', 'NOT STARTED'],
+            labels: ['DONE (100%+)', 'IN PROGRESS', 'NOT STARTED'],
             datasets: [{
               data: data.status,
               backgroundColor: ['#0284c7', '#38bdf8', '#cbd5e1'],
@@ -1057,9 +1333,8 @@
       }
     }
 
-    // INITIALIZE DASHBOARD ENGINE
     fetchCSVData();
-    setInterval(fetchCSVData, 60000); // AUTO-REFRESH EVERY 60s
+    setInterval(fetchCSVData, 60000);
   </script>
 </body>
 </html>
